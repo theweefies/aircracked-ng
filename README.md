@@ -1,3 +1,17 @@
+#Install instructions
+sudo apt-get update
+sudo apt-get install libtool m4 automake pkg-config
+git clone https://github.com/junglequiver/aircrack-ng
+make
+make install
+sudo vim /etc/profile
+#add the following line to the end
+PATH=$PATH:/usr/local/lib
+reboot
+sudo ldconfig
+
+
+
 # Aircrack-ng
 
 [![Alpine Linux Build Status](https://buildbot.aircrack-ng.org/badges/aircrack-ng-alpine.svg?left_text=Alpine%20Linux%20Build)](https://buildbot.aircrack-ng.org/)
