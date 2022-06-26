@@ -1,13 +1,23 @@
 #Install instructions
+
 sudo apt-get update
+
 sudo apt-get install libtool m4 automake pkg-config
+
 git clone https://github.com/junglequiver/aircrack-ng
+
 make
+
 make install
+
 sudo vim /etc/profile
+
 #add the following line to the end
+
 PATH=$PATH:/usr/local/lib
+
 reboot
+
 sudo ldconfig
 
 
