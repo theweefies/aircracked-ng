@@ -6,6 +6,12 @@ sudo apt-get install libtool m4 automake pkg-config
 
 git clone https://github.com/junglequiver/aircrack-ng
 
+cd aircrack-ng
+
+autoreconf -i
+
+./configure
+
 make
 
 make install
