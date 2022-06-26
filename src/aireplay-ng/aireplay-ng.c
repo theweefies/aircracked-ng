@@ -451,12 +451,12 @@ static int do_attack_deauth(void)
 
 			aacks = 0;
 			sacks = 0;
-			for (i = 0; i < 64; i++)
+			for (i = 0; i < 1; i++)
 			{
 				if (i == 0)
 				{
 					PCT;
-					printf("Sending 64 directed DeAuth (code %i). STMAC:"
+					printf("Sending 1 directed DeAuth (code %i). STMAC:"
 						   " [%02X:%02X:%02X:%02X:%02X:%02X] [%2d|%2d ACKs]\r",
 						   opt.deauth_rc,
 						   opt.r_dmac[0],
