@@ -260,6 +260,7 @@ int wait_for_beacon(struct wif * wi,
 			memset(essid, 0, 33);
 			memcpy(essid, data, taglen);
 			memcpy(bssid, pkt_sniff + 10, ETHER_ADDR_LEN);
+			PCT;
 			printf("Found BSSID \"%02X:%02X:%02X:%02X:%02X:%02X\" to "
 				   "given ESSID \"%s\".\n",
 				   bssid[0],

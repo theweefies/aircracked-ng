@@ -46,13 +46,11 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <sys/wait.h>
 #include <sys/time.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <dirent.h>
 #include <signal.h>
 #include <string.h>
 #include <stdlib.h>
@@ -60,17 +58,12 @@
 #include <errno.h>
 #include <time.h>
 #include <getopt.h>
-#include <assert.h>
 #include <math.h>
 
 #include <fcntl.h>
 #include <ctype.h>
 
 #include <limits.h>
-
-#include <netinet/in_systm.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
 
 #include "aircrack-ng/version.h"
 #include "aircrack-ng/support/pcap_local.h"
@@ -84,7 +77,7 @@
 
 #define RTC_RESOLUTION 8192
 
-#define REQUESTS 30
+#define REQUESTS 10
 #define MAX_APS 50
 #define MAX_ARP_SLOTS 8
 
@@ -187,7 +180,7 @@ static const char usage[] =
 	"                              ignore the mismatch, needed for unpatched "
 	"cfg80211\n"
 	"      --deauth-rc rc        : Deauthentication reason code [0-254] "
-	"(Default: 7)\n"
+	"(Default: 1)\n"
 	"\n"
 	"  Attack modes (numbers can still be used):\n"
 	"\n"
@@ -201,6 +194,7 @@ static const char usage[] =
 	"      --cfrag             : fragments against a client  (-7)\n"
 	"      --migmode           : attacks WPA migration mode  (-8)\n"
 	"      --test              : tests injection and quality (-9)\n"
+	"      --probe       count : send probe requests to APs  (-P)\n"
 	"\n"
 	"      --help              : Displays this usage screen\n"
 	"\n";
@@ -435,7 +429,7 @@ static int do_attack_deauth(void)
 
 	while (1)
 	{
-		if (opt.a_count > 0 && ++n > opt.a_count) break;
+		if (opt.a_count > 0 && ++n >= opt.a_count) break;
 
 		usleep(180000);
 
@@ -451,87 +445,85 @@ static int do_attack_deauth(void)
 
 			aacks = 0;
 			sacks = 0;
-			for (i = 0; i < 1; i++)
+			/*if (i == 0)
 			{
-				if (i == 0)
+				PCT;
+				printf("Sending directed DeAuth (code %i). STMAC:"
+					   " [%02X:%02X:%02X:%02X:%02X:%02X] [%2d|%2d ACKs]\r",
+					   opt.deauth_rc,
+					   opt.r_dmac[0],
+					   opt.r_dmac[1],
+					   opt.r_dmac[2],
+					   opt.r_dmac[3],
+					   opt.r_dmac[4],
+					   opt.r_dmac[5],
+					   sacks,
+					   aacks);
+			}
+
+			memcpy(h80211 + 4, opt.r_dmac, 6);
+			memcpy(h80211 + 10, opt.r_bssid, 6);
+
+			if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber)
+				< 0)
+				return (EXIT_FAILURE);
+
+			usleep(2000);
+			*/
+
+			memcpy(h80211 + 4, opt.r_bssid, 6);
+			memcpy(h80211 + 10, opt.r_dmac, 6);
+
+			if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber)
+				< 0)
+				return (EXIT_FAILURE);
+
+			usleep(2000);
+
+			while (1)
+			{
+				FD_ZERO(&rfds);
+				FD_SET(dev.fd_in, &rfds);
+
+				tv.tv_sec = 0;
+				tv.tv_usec = 1000;
+
+				if (select(dev.fd_in + 1, &rfds, NULL, NULL, &tv) < 0)
 				{
-					PCT;
-					printf("Sending 1 directed DeAuth (code %i). STMAC:"
-						   " [%02X:%02X:%02X:%02X:%02X:%02X] [%2d|%2d ACKs]\r",
-						   opt.deauth_rc,
-						   opt.r_dmac[0],
-						   opt.r_dmac[1],
-						   opt.r_dmac[2],
-						   opt.r_dmac[3],
-						   opt.r_dmac[4],
-						   opt.r_dmac[5],
-						   sacks,
-						   aacks);
+					if (errno == EINTR) continue;
+					perror("select failed");
+					return (EXIT_FAILURE);
 				}
 
-				memcpy(h80211 + 4, opt.r_dmac, 6);
-				memcpy(h80211 + 10, opt.r_bssid, 6);
+				if (!FD_ISSET(dev.fd_in, &rfds)) break;
 
-				if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber)
-					< 0)
-					return (EXIT_FAILURE);
+				caplen = read_packet(_wi_in, tmpbuf, sizeof(tmpbuf), NULL);
 
-				usleep(2000);
-
-				memcpy(h80211 + 4, opt.r_bssid, 6);
-				memcpy(h80211 + 10, opt.r_dmac, 6);
-
-				if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber)
-					< 0)
-					return (EXIT_FAILURE);
-
-				usleep(2000);
-
-				while (1)
+				if (caplen <= 0) break;
+				if (caplen != 10) continue;
+				if (tmpbuf[0] == 0xD4)
 				{
-					FD_ZERO(&rfds);
-					FD_SET(dev.fd_in, &rfds);
-
-					tv.tv_sec = 0;
-					tv.tv_usec = 1000;
-
-					if (select(dev.fd_in + 1, &rfds, NULL, NULL, &tv) < 0)
+					if (memcmp(tmpbuf + 4, opt.r_dmac, 6) == 0)
 					{
-						if (errno == EINTR) continue;
-						perror("select failed");
-						return (EXIT_FAILURE);
+						aacks++;
 					}
-
-					if (!FD_ISSET(dev.fd_in, &rfds)) break;
-
-					caplen = read_packet(_wi_in, tmpbuf, sizeof(tmpbuf), NULL);
-
-					if (caplen <= 0) break;
-					if (caplen != 10) continue;
-					if (tmpbuf[0] == 0xD4)
+					if (memcmp(tmpbuf + 4, opt.r_bssid, 6) == 0)
 					{
-						if (memcmp(tmpbuf + 4, opt.r_dmac, 6) == 0)
-						{
-							aacks++;
-						}
-						if (memcmp(tmpbuf + 4, opt.r_bssid, 6) == 0)
-						{
-							sacks++;
-						}
-						PCT;
-						printf(
-							"Sending 64 directed DeAuth (code %i). STMAC:"
-							" [%02X:%02X:%02X:%02X:%02X:%02X] [%2d|%2d ACKs]\r",
-							opt.deauth_rc,
-							opt.r_dmac[0],
-							opt.r_dmac[1],
-							opt.r_dmac[2],
-							opt.r_dmac[3],
-							opt.r_dmac[4],
-							opt.r_dmac[5],
-							sacks,
-							aacks);
+						sacks++;
 					}
+					PCT;
+					printf(
+						"Sending directed DeAuth (code %i). STMAC:"
+						" [%02X:%02X:%02X:%02X:%02X:%02X] [%2d|%2d ACKs]\r",
+						opt.deauth_rc,
+						opt.r_dmac[0],
+						opt.r_dmac[1],
+						opt.r_dmac[2],
+						opt.r_dmac[3],
+						opt.r_dmac[4],
+						opt.r_dmac[5],
+						sacks,
+						aacks);
 				}
 			}
 			printf("\n");
@@ -558,14 +550,11 @@ static int do_attack_deauth(void)
 			memcpy(h80211 + 10, opt.r_bssid, 6);
 			memcpy(h80211 + 16, opt.r_bssid, 6);
 
-			for (i = 0; i < 128; i++)
-			{
-				if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber)
-					< 0)
-					return (1);
+			if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber)
+				< 0)
+				return (1);
 
-				usleep(2000);
-			}
+			usleep(2000);
 		}
 	}
 
@@ -1113,9 +1102,7 @@ static int do_attack_fake_auth(void)
 		if ((((tv3.tv_sec * 1000000 - tv2.tv_sec * 1000000)
 			  + (tv3.tv_usec - tv2.tv_usec))
 			 > (100 * 1000))
-			&& (gotack > 0)
-			&& (gotack < packets)
-			&& (state == 3))
+			&& (gotack > 0) && (gotack < packets) && (state == 3))
 		{
 			PCT;
 			printf("Not enough acks, repeating...\n");
@@ -3323,7 +3310,7 @@ static int do_attack_chopchop(void)
 	unsigned char b2 = 0xAA;
 
 	FILE * f_cap_out;
-	long nb_pkt_read;
+	//long nb_pkt_read;
 	unsigned long crc_mask;
 	unsigned char * chopped;
 
@@ -3517,7 +3504,7 @@ static int do_attack_chopchop(void)
 
 	memset(ticks, 0, sizeof(ticks));
 
-	nb_pkt_read = 0;
+	//nb_pkt_read = 0;
 	nb_pkt_sent = 0;
 	nb_bad_pkt = 0;
 	guess = 256;
@@ -3765,7 +3752,7 @@ static int do_attack_chopchop(void)
 
 		if (n == 0) continue;
 
-		nb_pkt_read++;
+		//nb_pkt_read++;
 
 		/* check if it's a deauth packet */
 
@@ -4319,8 +4306,7 @@ static int do_attack_fragment(void)
 				if (((tv2.tv_sec * 1000000UL - tv.tv_sec * 1000000UL)
 					 + (tv2.tv_usec - tv.tv_usec))
 						> (100 * 1000)
-					&& acksgot > 0
-					&& acksgot < packets) // wait 100ms for acks
+					&& acksgot > 0 && acksgot < packets) // wait 100ms for acks
 				{
 					PCT;
 					printf("Not enough acks, repeating...\n");
@@ -4506,8 +4492,7 @@ static int do_attack_fragment(void)
 				if (((tv2.tv_sec * 1000000UL - tv.tv_sec * 1000000UL)
 					 + (tv2.tv_usec - tv.tv_usec))
 						> (100 * 1000)
-					&& acksgot > 0
-					&& acksgot < packets) // wait 100ms for acks
+					&& acksgot > 0 && acksgot < packets) // wait 100ms for acks
 				{
 					PCT;
 					printf("Not enough acks, repeating...\n");
@@ -4669,8 +4654,7 @@ static int do_attack_fragment(void)
 				if (((tv2.tv_sec * 1000000 - tv.tv_sec * 1000000)
 					 + (tv2.tv_usec - tv.tv_usec))
 						> (100 * 1000)
-					&& acksgot > 0
-					&& acksgot < packets) // wait 100ms for acks
+					&& acksgot > 0 && acksgot < packets) // wait 100ms for acks
 				{
 					PCT;
 					printf("Not enough acks, repeating...\n");
@@ -5068,6 +5052,395 @@ static int tcp_test(const char * ip_str, const short port)
 		   min / 1000.0f,
 		   avg / 1000.0f,
 		   max / 1000.0f);
+
+	return 0;
+}
+
+static int do_probe(void)
+{
+	unsigned char packet[4096];
+	struct timeval tv, tv2, tv3;
+	int len = 0, j = 0, k = 0;
+	int gotit = 0, answers = 0, requests = 0;
+	int caplen = 0, essidlen = 0, bssidlen = 0;
+	unsigned int min, avg, max, i = 0, found = 0;
+	int ret = 0;
+	float avg2;
+	struct rx_info ri;
+	unsigned long atime = 500; // time in ms to wait for answer packet (needs to
+	// be higher for airserv)
+	unsigned char nulldata[1024];
+	uint8_t broadcast[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+	essidlen = strlen(opt.r_essid);
+	bssidlen = strlen(opt.r_bssid);
+
+	PCT;
+	if (bssidlen > 0)
+	{
+		printf("%02X:%02X:%02X:%02X:%02X:%02X",
+			   opt.r_bssid[0],
+			   opt.r_bssid[1],
+			   opt.r_bssid[2],
+			   opt.r_bssid[3],
+			   opt.r_bssid[4],
+			   opt.r_bssid[5]);
+	}
+	if (essidlen > 0)
+	{
+		printf(" - \'%s\'\n",
+				opt.r_essid);
+	}
+	else
+	{
+		printf("\n");
+	}
+
+	if (getnet(_wi_in,
+			   NULL,
+			   0,
+			   0,
+			   opt.f_bssid,
+			   opt.r_bssid,
+			   (uint8_t *) opt.r_essid,
+			   opt.ignore_negative_one,
+			   opt.nodetect)
+		!= 0)
+		return (EXIT_FAILURE);
+
+	rand_init();
+
+	memset(ap, '\0', sizeof(ap));
+
+	if (essidlen > 0)
+	{
+		ap[0].set = 1;
+		ap[0].found = 0;
+		ap[0].len = essidlen;
+		memcpy(ap[0].essid, opt.r_essid, essidlen);
+		ap[0].essid[essidlen] = '\0';
+		memcpy(ap[0].bssid, opt.r_bssid, 6);
+		found++;
+	}
+	if (bssidlen > 0)
+	{
+		if (essidlen == 0) 
+		{
+			ap[0].len = 0;
+			ap[0].essid[0] = '\0';
+		}
+		ap[0].set = 1;
+		ap[0].found = 0;
+		memcpy(ap[0].bssid, opt.r_bssid, 6);
+		found++;
+	}
+
+	PCT;
+	if (essidlen > 0)
+	{
+		printf("Trying broadcast probe requests to \'%s\'...\n", opt.r_essid);
+	}
+	else if ((bssidlen > 0) && (essidlen == 0))
+	{
+		printf("Trying broadcast probe requests to %02X:%02X:%02X:%02X:%02X:%02X...\n", 
+				opt.r_bssid[0],
+				opt.r_bssid[1],
+				opt.r_bssid[2],
+				opt.r_bssid[3],
+				opt.r_bssid[4],
+				opt.r_bssid[5]);
+	}
+	else
+	{
+		printf("Trying broadcast probe requests to APs...\n");
+	}
+
+	memcpy(h80211, PROBE_REQ, 24);
+
+	len = 24;
+
+	h80211[24] = 0x00; // ESSID Tag Number
+	h80211[25] = 0x00; // ESSID Tag Length
+
+	len += 2;
+
+	memcpy(h80211 + len, RATES, 16);
+
+	len += 16;
+
+	gotit = 0;
+	answers = 0;
+
+	PCT;
+	if (essidlen > 0)
+	{
+		printf("Attempting to find \'%s\' in the area\n", opt.r_essid);
+	}
+	else if ((bssidlen > 0) && (essidlen == 0))
+	{
+		printf("Attempting to find %02X:%02X:%02X:%02X:%02X:%02X in the area\n", 
+				opt.r_bssid[0],
+				opt.r_bssid[1],
+				opt.r_bssid[2],
+				opt.r_bssid[3],
+				opt.r_bssid[4],
+				opt.r_bssid[5]);
+	}
+	else
+	{
+		printf("Attempting to find APs in the area\n");
+	}
+
+	for (i = 0; i < 3; i++)
+	{
+		/*
+			random source so we can identify our packets
+		*/
+		opt.r_smac[0] = 0x00;
+		opt.r_smac[1] = rand_u8();
+		opt.r_smac[2] = rand_u8();
+		opt.r_smac[3] = rand_u8();
+		opt.r_smac[4] = rand_u8();
+		opt.r_smac[5] = rand_u8();
+
+		memcpy(h80211 + 10, opt.r_smac, 6);
+
+		send_packet(_wi_out, h80211, (size_t) len, kRewriteSequenceNumber);
+
+		gettimeofday(&tv, NULL);
+
+		while (1) // waiting for relayed packet
+		{
+			caplen = read_packet(_wi_in, packet, sizeof(packet), &ri);
+			if (caplen < 0 && errno == EINTR)
+				continue;
+			else if (caplen < 0)
+				break;
+
+			if (packet[0] == 0x50) // Is probe response
+			{
+				if (!memcmp(opt.r_smac, packet + 4, 6)) // To our MAC
+				{
+					if (grab_essid(packet, caplen) == 0
+						&& (!memcmp(opt.r_bssid, NULL_MAC, 6)))
+					{
+						found++;
+					}
+					if (!answers)
+					{
+						PCT;
+						printf("Probe requests received responses!\n");
+						if (opt.fast) return 0;
+						gotit = 1;
+						answers++;
+					}
+				}
+			}
+
+			if (packet[0] == 0x80) // Is beacon frame
+			{
+				if (grab_essid(packet, caplen) == 0
+					&& (!memcmp(opt.r_bssid, NULL_MAC, 6)))
+				{
+					found++;
+				}
+			}
+
+			gettimeofday(&tv2, NULL);
+			if (((tv2.tv_sec * 1000000UL - tv.tv_sec * 1000000UL)
+				 + (tv2.tv_usec - tv.tv_usec))
+				> (3 * atime * 1000)) // wait 'atime'ms for an answer
+			{
+				break;
+			}
+		}
+	}
+	if (answers == 0)
+	{
+		PCT;
+		printf("No Answer...\n");
+	}
+
+	PCT;
+	printf("Found %u AP%c\n", found, ((found == 1) ? ' ' : 's'));
+
+	if (found > 0)
+	{
+		printf("\n");
+		PCT;
+		printf("Trying directed probe requests...\n");
+	}
+
+	for (i = 0; i < found; i++)
+	{
+		if (wi_get_channel(_wi_out) != ap[i].chan)
+		{
+			wi_set_channel(_wi_out, ap[i].chan);
+		}
+
+		if (wi_get_channel(_wi_in) != ap[i].chan)
+		{
+			wi_set_channel(_wi_in, ap[i].chan);
+		}
+
+		PCT;
+
+		printf("%02X:%02X:%02X:%02X:%02X:%02X - channel: %d",
+			   ap[i].bssid[0],
+			   ap[i].bssid[1],
+			   ap[i].bssid[2],
+			   ap[i].bssid[3],
+			   ap[i].bssid[4],
+			   ap[i].bssid[5],
+			   ap[i].chan);
+		if (strlen(ap[i].essid) != 0)
+		{
+			printf(" - \'%s\'\n", ap[i].essid);
+		}
+		else
+		{
+			printf("\n");
+		}
+
+		ap[i].found = 0;
+		min = INT_MAX;
+		max = 0;
+		avg = 0;
+		avg2 = 0;
+
+		memcpy(h80211, PROBE_REQ, 24);
+
+		len = 24;
+
+		h80211[24] = 0x00; // ESSID Tag Number
+		h80211[25] = ap[i].len; // ESSID Tag Length
+		memcpy(h80211 + len + 2, ap[i].essid, ap[i].len);
+
+		len += ap[i].len + 2;
+
+		memcpy(h80211 + len, RATES, 16);
+
+		len += 16;
+
+		PCT;
+		printf("Sending %d directed probe requests\n", opt.a_count);
+		for (j = 0; j < opt.a_count; j++)
+		{
+			/*
+				random source so we can identify our packets
+			*/
+			opt.r_smac[0] = 0x00;
+			opt.r_smac[1] = rand_u8();
+			opt.r_smac[2] = rand_u8();
+			opt.r_smac[3] = rand_u8();
+			opt.r_smac[4] = rand_u8();
+			opt.r_smac[5] = rand_u8();
+
+			// build/send probe request
+			memcpy(h80211 + 10, opt.r_smac, 6);
+
+			send_packet(_wi_out, h80211, (size_t) len, kRewriteSequenceNumber);
+			usleep(10);
+
+			// continue
+			gettimeofday(&tv, NULL);
+
+			printf("\r%2d/%2d: %3d%%\r",
+				   ap[i].found,
+				   j + 1,
+				   ((ap[i].found * 100) / (j + 1)));
+			fflush(stdout);
+			while (1) // waiting for relayed packet
+			{
+				caplen = read_packet(_wi_in, packet, sizeof(packet), &ri);
+				if (caplen < 0 && errno == EINTR)
+					continue;
+				else if (caplen < 0)
+					break;
+
+				if (packet[0] == 0x50) // Is probe response
+				{
+					if (!memcmp(opt.r_smac, packet + 4, 6)) // To our MAC
+					{
+						if (!memcmp(ap[i].bssid,
+									packet + 16,
+									6)) // From the mentioned AP
+						{
+							gettimeofday(&tv3, NULL);
+							//ap[i].ping[j]
+							//	= ((tv3.tv_sec * 1000000 - tv.tv_sec * 1000000)
+							//	   + (tv3.tv_usec - tv.tv_usec));
+							if (!answers)
+							{
+								if (opt.fast)
+								{
+									PCT;
+									printf("Probe requests received responses!\n\n");
+									return 0;
+								}
+								answers++;
+							}
+							ap[i].found++;
+							if ((signed) ri.ri_power > -200)
+								ap[i].pwr[j] = (signed) ri.ri_power;
+							break;
+						}
+					}
+				}
+
+				gettimeofday(&tv2, NULL);
+				if (((tv2.tv_sec * 1000000UL - tv.tv_sec * 1000000UL)
+					 + (tv2.tv_usec - tv.tv_usec))
+					> (atime * 1000)) // wait 'atime'ms for an answer
+				{
+					break;
+				}
+				usleep(10);
+			}
+			printf("\r%2d/%2d: %3d%%\r",
+				   ap[i].found,
+				   j + 1,
+				   ((ap[i].found * 100) / (j + 1)));
+			fflush(stdout);
+		}
+
+		PCT;
+		printf("%2d/%2d: %3d%%\n\n",
+			   ap[i].found,
+			   opt.a_count,
+			   ((ap[i].found * 100) / opt.a_count));
+
+		if (!gotit && answers)
+		{
+			PCT;
+			printf("Probe requests received responses!\n\n");
+			gotit = 1;
+		}
+
+		if (ap[i].found)
+		{
+			if ((essidlen > 0 || (bssidlen > 0)) && i == 0)
+			{
+				PCT;
+				printf("Got probe responses from %02X:%02X:%02X:%02X:%02X:%02X",
+					   ap[i].bssid[0],
+					   ap[i].bssid[1],
+					   ap[i].bssid[2],
+					   ap[i].bssid[3],
+					   ap[i].bssid[4],
+					   ap[i].bssid[5]);
+				if (strlen(ap[i].essid) != 0)
+				{
+					printf(" - \'%s\'\n", ap[i].essid);
+				}
+				else
+				{
+					printf("\n");
+				}
+				return 0;
+			}
+		}
+	}
 
 	return 0;
 }
@@ -5972,6 +6345,7 @@ static int do_attack_test(void)
 	return 0;
 }
 
+
 int main(int argc, char * argv[])
 {
 	int n, i, ret;
@@ -6002,8 +6376,7 @@ int main(int argc, char * argv[])
 	opt.rtc = 1;
 	opt.f_retry = 0;
 	opt.reassoc = 0;
-	opt.deauth_rc = 7; /* By default deauth reason code is Class 3 frame
-						  received from nonassociated STA */
+	opt.deauth_rc = 1; /* By default deauth reason code is Unspecified Failure */
 
 /* XXX */
 #if 0
@@ -6034,19 +6407,20 @@ int main(int argc, char * argv[])
 			   {"fragment", 0, 0, '5'},
 			   {"caffe-latte", 0, 0, '6'},
 			   {"cfrag", 0, 0, '7'},
-			   {"test", 0, 0, '9'},
+			   {"probe", 1, 0, 'P'},
 			   {"help", 0, 0, 'H'},
 			   {"fast", 0, 0, 'F'},
 			   {"bittest", 0, 0, 'B'},
 			   {"migmode", 0, 0, '8'},
 			   {"ignore-negative-one", 0, &opt.ignore_negative_one, 1},
 			   {"deauth-rc", 1, 0, 'Z'},
+			   {"test", 0, 0, '9'},
 			   {0, 0, 0, 0}};
 
 		int option = getopt_long(argc,
 								 argv,
 								 "b:d:s:m:n:u:v:t:Z:T:f:g:w:x:p:a:c:h:e:ji:r:k:"
-								 "l:y:o:q:Q0:1:23456789HFBDR",
+								 "l:y:o:q:Q0:1:23456789P:HFBDR",
 								 long_options,
 								 &option_index);
 
@@ -6468,7 +6842,7 @@ int main(int argc, char * argv[])
 				}
 				opt.a_mode = 7;
 				break;
-
+			
 			case '9':
 
 				if (opt.a_mode != -1)
@@ -6478,6 +6852,30 @@ int main(int argc, char * argv[])
 					return (1);
 				}
 				opt.a_mode = 9;
+
+			case 'P':
+
+				if (opt.a_mode != -1)
+				{
+					printf("Attack mode already specified.\n");
+					printf("\"%s --help\" for help.\n", argv[0]);
+					return (1);
+				}
+				opt.a_mode = 'P';
+
+				for (i = 0; optarg[i] != 0; i++)
+				{
+					if (isdigit((int) optarg[i]) == 0) break;
+				}
+
+				ret = sscanf(optarg, "%d", &opt.a_count);
+				if (opt.a_count < 0 || optarg[i] != 0 || ret != 1)
+				{
+					printf("Invalid probe request count or missing value. "
+						   "[>=0]\n");
+					printf("\"%s --help\" for help.\n", argv[0]);
+					return (1);
+				}
 				break;
 
 			case '8':
@@ -6572,7 +6970,7 @@ int main(int argc, char * argv[])
 
 	dev.fd_rtc = -1;
 
-/* open the RTC device if necessary */
+	/* open the RTC device if necessary */
 
 #if defined(__i386__)
 #if defined(linux)
@@ -6722,7 +7120,7 @@ int main(int argc, char * argv[])
 	if (maccmp(opt.r_smac, NULL_MAC) == 0)
 	{
 		memcpy(opt.r_smac, dev.mac_out, 6);
-		if (opt.a_mode != 0 && opt.a_mode != 4 && opt.a_mode != 9)
+		if (opt.a_mode != 0 && opt.a_mode != 4 && opt.a_mode != 9 && opt.a_mode != 'P')
 		{
 			printf("No source MAC (-h) specified. Using the device MAC "
 				   "(%02X:%02X:%02X:%02X:%02X:%02X)\n",
@@ -6782,6 +7180,8 @@ int main(int argc, char * argv[])
 			return (do_attack_migmode());
 		case 9:
 			return (do_attack_test());
+		case 'P':
+			return (do_probe());
 		default:
 			break;
 	}
