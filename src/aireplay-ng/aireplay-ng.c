@@ -197,6 +197,9 @@ static const char usage[] =
 	"      --probe       count : send probe requests to APs  (-P)\n"
 	"\n"
 	"      --help              : Displays this usage screen\n"
+	"\n"
+	"NOTE: if you are using airodump on the same physical interface as aireplay\n"
+	"      for deauthentication attack, the count specified may be doubled.\n"
 	"\n";
 
 struct communication_options opt;
@@ -429,7 +432,7 @@ static int do_attack_deauth(void)
 
 	while (1)
 	{
-		if (opt.a_count > 0 && ++n >= opt.a_count) break;
+		if (opt.a_count > 0 && n++ >= opt.a_count) break;
 
 		usleep(180000);
 
@@ -473,7 +476,6 @@ static int do_attack_deauth(void)
 
 			memcpy(h80211 + 4, opt.r_bssid, 6);
 			memcpy(h80211 + 10, opt.r_dmac, 6);
-
 			if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber)
 				< 0)
 				return (EXIT_FAILURE);
@@ -549,7 +551,6 @@ static int do_attack_deauth(void)
 			memcpy(h80211 + 4, BROADCAST, 6);
 			memcpy(h80211 + 10, opt.r_bssid, 6);
 			memcpy(h80211 + 16, opt.r_bssid, 6);
-
 			if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber)
 				< 0)
 				return (1);
