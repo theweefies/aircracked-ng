@@ -199,7 +199,7 @@ static const char usage[] =
 	"      --help              : Displays this usage screen\n"
 	"\n"
 	"NOTE: if you are using airodump on the same physical interface as aireplay\n"
-	"      for deauthentication attack, the count specified may be doubled.\n"
+	"      for packet transmission, the count specified may be doubled.\n"
 	"\n";
 
 struct communication_options opt;
