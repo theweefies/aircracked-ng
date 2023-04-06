@@ -1,12 +1,13 @@
 #Install instructions
 
+```bash
 sudo apt-get update
 
 sudo apt-get install libtool m4 automake pkg-config
 
-git clone https://github.com/junglequiver/aircrack-ng
+git clone https://github.com/theweefies/aircracked-ng
 
-cd aircrack-ng
+cd aircracked-ng
 
 autoreconf -i
 
@@ -19,15 +20,22 @@ make install
 sudo vim /etc/profile
 
 #add the following line to the end
-
 PATH=$PATH:/usr/local/lib
 
 reboot
 
 sudo ldconfig
+```
 
+# Aircracked-ng changes
 
-
+This version of the aircrack suite contains changes primarily to the aireplay-ng binary:
+- UPDATED - Deauthentication:   Reason code default is now set to reason code 1. Deauthentication frames specified in the count are true to the count, except in instances where the interface is shared with airodump.
+                                When a second card/interface is used for airodump or the interface is not shared, the number of frames transmitted is accurate to the count, both for broadcast and directed deauths.
+- NEW FEATURE - Probe Requests: A new option (-P / --probe) has been added to the aireplay-ng binary. This option takes a positive integer for the count, similar to the deauth option. You can pass an
+                                essid or bssid to send directed probe requests, or nothing to send probe requests and elicit responses from any surrounding APs. Of note: this script first conducts a
+                                hearability check by sending a broadcast probe at intervals until a reponse is received to confirm that AP(s) are present, and then sends the number of directed probes    
+                                specified by the count. The same note above about interface sharing remains true for sending probes as well.  
 # Aircrack-ng
 
 [![Alpine Linux Build Status](https://buildbot.aircrack-ng.org/badges/aircrack-ng-alpine.svg?left_text=Alpine%20Linux%20Build)](https://buildbot.aircrack-ng.org/)
