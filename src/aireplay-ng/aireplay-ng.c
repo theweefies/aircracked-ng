@@ -6421,7 +6421,7 @@ int main(int argc, char * argv[])
 		int option = getopt_long(argc,
 								 argv,
 								 "b:d:s:m:n:u:v:t:Z:T:f:g:w:x:p:a:c:h:e:ji:r:k:"
-								 "l:y:o:q:Q0:1:23456789P:HFBDR",
+								 "l:y:o:q:Q0:1:2345678P:9HFBDR",
 								 long_options,
 								 &option_index);
 
@@ -6843,7 +6843,18 @@ int main(int argc, char * argv[])
 				}
 				opt.a_mode = 7;
 				break;
-			
+
+			case '8':
+
+				if (opt.a_mode != -1)
+				{
+					printf("Attack mode already specified.\n");
+					printf("\"%s --help\" for help.\n", argv[0]);
+					return (1);
+				}
+				opt.a_mode = 8;
+				break;
+
 			case '9':
 
 				if (opt.a_mode != -1)
@@ -6853,15 +6864,10 @@ int main(int argc, char * argv[])
 					return (1);
 				}
 				opt.a_mode = 9;
+				break;
 
 			case 'P':
 
-				if (opt.a_mode != -1)
-				{
-					printf("Attack mode already specified.\n");
-					printf("\"%s --help\" for help.\n", argv[0]);
-					return (1);
-				}
 				opt.a_mode = 'P';
 
 				for (i = 0; optarg[i] != 0; i++)
@@ -6879,17 +6885,7 @@ int main(int argc, char * argv[])
 				}
 				break;
 
-			case '8':
-
-				if (opt.a_mode != -1)
-				{
-					printf("Attack mode already specified.\n");
-					printf("\"%s --help\" for help.\n", argv[0]);
-					return (1);
-				}
-				opt.a_mode = 8;
-				break;
-
+			
 			case 'F':
 
 				opt.fast = 1;
