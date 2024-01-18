@@ -145,8 +145,53 @@ int ax_chans[]
 	181, 185, 189, 193, 197, 201, 205, 209, 213, 217, 
 	221, 225, 229, 233, 0};
 
+static const int channel_frequency_map_bg[] = {
+    1, 2412,
+    2, 2417,
+    3, 2422,
+    4, 2427,
+    5, 2432,
+    6, 2437,
+    7, 2442,
+    8, 2447,
+    9, 2452,
+    10, 2457,
+    11, 2462,
+    12, 2467,
+    13, 2472,
+    14, 2484,  // Channel 14 is 12 MHz away from channel 13
+    -1, -1     // End marker
+};
+
+static const int channel_frequency_map_a[] = {
+    36, 5180,
+    40, 5200,
+    44, 5220,
+    48, 5240,
+    52, 5260,
+    56, 5280,
+    60, 5300,
+    64, 5320,
+    100, 5500,
+    104, 5520,
+    108, 5540,
+    112, 5560,
+    116, 5580,
+    120, 5600,
+    124, 5620,
+    128, 5640,
+    132, 5660,
+    136, 5680,
+    140, 5700,
+    149, 5745,
+    153, 5765,
+    157, 5785,
+    161, 5805,
+    -1, -1     // End marker
+};
+
 // Define a lookup table for channel to frequency mapping
-static const int channel_frequency_map[] = {
+static const int channel_frequency_map_ax[] = {
 	1, 5955,
 	2, 5935,
 	5, 5975,
@@ -212,7 +257,6 @@ static const int channel_frequency_map[] = {
 
 #define MAX_FREQS 1000
 #define MAX_FREQ_STR_LEN 6 // Each frequency is at most 5 digits plus a comma
-
 
 static int * frequencies;
 
@@ -362,6 +406,7 @@ static struct local_options
 
 	int relative_time; /* read PCAP in psuedo-real-time */
 	int scan_11ax;
+	int ppi;
 } lopt;
 
 static void resetSelection(void)
@@ -839,6 +884,7 @@ static const char usage[] =
 	"      --gpsd                : Use GPSd\n"
 	"      --write      <prefix> : Dump file prefix\n"
 	"      -w                    : same as --write \n"
+	"      -p                    : Create pcap PPI headers with gps info\n"
 	"      --beacons             : Record all beacons in dump file\n"
 	"      --update       <secs> : Display update delay in seconds\n"
 	"      --showack             : Prints ack/cts/rts statistics\n"
@@ -5360,12 +5406,40 @@ frequency_hopper(struct wif * wi[], int if_num, int chan_count, pid_t parent)
 	exit(0);
 }
 
+void channels_to_freq_string_a(const int *channels, char *freq_string) {
+
+    int len = strlen(freq_string);
+    for (int i = 0; channels[i] != 0; ++i) {
+        for (int j = 0; channel_frequency_map_a[j] != -1; j += 2) {
+            if (channels[i] == channel_frequency_map_a[j]) {
+                len += snprintf(freq_string + len, MAX_FREQ_STR_LEN, "%s%d",
+                                len > 0 ? "," : "", channel_frequency_map_a[j + 1]);
+                break;
+            }
+        }
+    }
+}
+
+void channels_to_freq_string_bg(const int *channels, char *freq_string) {
+
+    int len = strlen(freq_string);
+    for (int i = 0; channels[i] != 0; ++i) {
+        for (int j = 0; channel_frequency_map_bg[j] != -1; j += 2) {
+            if (channels[i] == channel_frequency_map_bg[j]) {
+                len += snprintf(freq_string + len, MAX_FREQ_STR_LEN, "%s%d",
+                                len > 0 ? "," : "", channel_frequency_map_bg[j + 1]);
+                break;
+            }
+        }
+    }
+}
+
 // Function to map 6 GHz channel number to frequency (in MHz)
 int channel_to_frequency_ax(int channel) {
     // Iterate over the lookup table to find the frequency
-    for (int i = 0; channel_frequency_map[i] != -1; i += 2) {
-        if (channel_frequency_map[i] == channel) {
-            return channel_frequency_map[i + 1];
+    for (int i = 0; channel_frequency_map_ax[i] != -1; i += 2) {
+        if (channel_frequency_map_ax[i] == channel) {
+            return channel_frequency_map_ax[i + 1];
         }
     }
     return -1; // Channel not found, return invalid
@@ -5956,7 +6030,7 @@ int main(int argc, char * argv[])
 	int caplen = 0, i, j, fdh, chan_count, freq_count;
 	int fd_raw[MAX_CARDS];
 	int ivs_only, found;
-	int freq[2];
+	int freq[3];
 	int num_opts = 0;
 	int option = 0;
 	int option_index = 0;
@@ -6119,6 +6193,7 @@ int main(int argc, char * argv[])
 	lopt.do_exit = 0;
 	lopt.min_pkts = 2;
 	lopt.relative_time = 0;
+	lopt.ppi = 0;
 #ifdef CONFIG_LIBNL
 	lopt.htval = CHANNEL_NO_HT;
 #endif
@@ -6217,7 +6292,7 @@ int main(int argc, char * argv[])
 		option
 			= getopt_long(argc,
 						  argv,
-						  "b:c:egiw:s:t:u:m:d:N:R:aHDB:Ahf:r:EC:o:x:MUI:WK:n:T:X",
+						  "b:c:egiw:s:t:u:m:d:N:R:aHDB:Ahf:r:EC:o:x:MUI:WK:n:T:X:p",
 						  long_options,
 						  &option_index);
 
@@ -6306,6 +6381,7 @@ int main(int argc, char * argv[])
 				break;
 
 			case 'U':
+
 				lopt.show_uptime = 1;
 				break;
 
@@ -6315,11 +6391,13 @@ int main(int argc, char * argv[])
 				break;
 			
 			case 'X':
-    			// Set a flag or variable indicating that 802.11ax scanning is selected
+
+    			// Set a flag indicating that 802.11ax scanning is selected
     			lopt.scan_11ax = 1;
     			break;
 
 			case 'c':
+
 				if (lopt.channel[0] > 0 || lopt.chanoption == 1)
 				{
 					if (lopt.chanoption == 1)
@@ -6388,13 +6466,12 @@ int main(int argc, char * argv[])
 				break;
 
 			case 'b':
-
 				if (lopt.chanoption == 1)
 				{
 					printf("Notice: Channel range already given\n");
 					break;
 				}
-				freq[0] = freq[1] = 0;
+				freq[0] = freq[1] = freq[2] = 0; // freq[0] for b/g, freq[1] for a, freq[2] for ax
 
 				for (i = 0; i < (int) strlen(optarg); i++) //-V814
 				{
@@ -6403,7 +6480,7 @@ int main(int argc, char * argv[])
 					else if (optarg[i] == 'b' || optarg[i] == 'g')
 						freq[0] = 1;
 					else if (optarg[i] == 'x')
-						freq[0] = 3;
+						freq[2] = 1;
 					else
 					{
 						printf("Error: invalid band (%c)\n", optarg[i]);
@@ -6412,19 +6489,32 @@ int main(int argc, char * argv[])
 					}
 				}
 
-				if (freq[1] + freq[0] == 2)
-					lopt.channels = (int *) abg_chans;
-				else if (freq[0] == 3)
-					// placeholder for setting the standard ax frequencies
-					break;
-				else
-				{
+				// Check if 'ax' band is specified
+				if (freq[2] == 1) {
+					char federated_freq_string[MAX_FREQS * MAX_FREQ_STR_LEN] = {0};
+
+					// Accumulate frequencies from specified bands
+					if (freq[0] == 1)
+						channels_to_freq_string_bg(bg_chans, federated_freq_string); // Append bg frequencies
 					if (freq[1] == 1)
+						channels_to_freq_string_a(a_chans, federated_freq_string); // Append a frequencies
+					channels_to_freq_string_ax(ax_chans, federated_freq_string); // Append ax frequencies
+
+					federated_freq_string[sizeof(federated_freq_string) - 1] = '\0';
+
+					lopt.freqstring = federated_freq_string;
+					lopt.chanoption = 0; // Reset channel option
+					lopt.freqoption = 1; // Set frequency option
+				} else {
+					// Maintain default behavior for setting lopt.channels
+					if (freq[1] + freq[0] == 2)
+						lopt.channels = (int *) abg_chans;
+					else if (freq[1] == 1)
 						lopt.channels = (int *) a_chans;
 					else
 						lopt.channels = (int *) bg_chans;
+					lopt.chanoption = 1;
 				}
-
 				break;
 
 			case 'i':
@@ -6457,6 +6547,16 @@ int main(int argc, char * argv[])
 			case 'g':
 
 				opt.usegpsd = 1;
+				break;
+			
+			case 'p':
+
+				if (!(opt.usegpsd)) {
+					printf("--gpsd option must be used with ppi creation option. Ignoring this flag.\n");
+					sleep(1);
+					break;
+				}
+				lopt.ppi = 1;
 				break;
 
 			case 'w':
