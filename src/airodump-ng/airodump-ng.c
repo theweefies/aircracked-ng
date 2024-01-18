@@ -6352,7 +6352,6 @@ int main(int argc, char * argv[])
 
 					freq_string[sizeof(freq_string) - 1] = '\0';
 
-					printf("Frequency String: %s\n", freq_string);
 					lopt.chanoption = 0; // Reset channel option
 					lopt.freqoption = 1; // Set frequency option
 					lopt.freqstring = freq_string;
