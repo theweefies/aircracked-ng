@@ -82,6 +82,14 @@ struct ac_channel_info
 	/* Maximum TX rate          */
 };
 
+/* 802.11ax channel information */
+struct ax_channel_info
+{
+	unsigned char center_sgmt[2];
+	unsigned char split_chan; /* 80+80MHz Channel support */
+	unsigned char mhz_160_chan; /* 160 MHz channel support */
+};
+
 enum channel_width_enum
 {
 	CHANNEL_UNKNOWN_WIDTH,
@@ -111,6 +119,7 @@ struct AP_info
 	char standard[3]; /* 802.11 standard: n or ac */
 	struct n_channel_info n_channel; /* 802.11n channel info     */
 	struct ac_channel_info ac_channel; /* 802.11ac channel info    */
+	struct ax_channel_info ax_channel; /* 802.11ax channel info    */
 	int max_speed; /* AP maximum speed in Mb/s */
 	int avg_power; /* averaged signal power    */
 	int best_power; /* best signal power    */

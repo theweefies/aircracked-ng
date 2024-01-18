@@ -127,6 +127,93 @@ static int a_chans[]
 	   118, 120, 122, 124, 126, 128, 132, 134, 136, 138, 140, 142,
 	   144, 149, 151, 153, 155, 157, 159, 161, 165, 169, 173, 0};
 
+int ax_all_chans[] 
+	= {1, 2, 5, 9, 13, 17, 21, 25, 27, 29, 33, 37, 41, 45, 47, 49, 51, 53, 55, 57, 59, 61, 
+	   63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 
+	   93, 95, 97, 99, 101, 103, 105, 107, 109, 111, 113, 115, 117, 
+	   119, 121, 123, 125, 127, 129, 131, 133, 135, 137, 139, 141, 
+	   143, 145, 147, 149, 151, 153, 155, 157, 159, 161, 163, 165, 
+	   167, 169, 171, 173, 175, 177, 179, 181, 183, 185, 187, 189, 
+	   191, 193, 195, 197, 199, 201, 203, 205, 207, 209, 211, 213, 
+	   215, 217, 219, 221, 223, 225, 227, 229, 231, 233, 0};
+
+int ax_chans[] 
+	= {1, 2, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 
+	49, 53, 57, 61, 65, 69, 73, 77, 81, 85, 89, 93, 97, 
+	101, 105, 109, 113, 117, 121, 125, 129, 133, 137, 
+	141, 145, 149, 153, 157, 161, 165, 169, 173, 177, 
+	181, 185, 189, 193, 197, 201, 205, 209, 213, 217, 
+	221, 225, 229, 233, 0};
+
+// Define a lookup table for channel to frequency mapping
+static const int channel_frequency_map[] = {
+	1, 5955,
+	2, 5935,
+	5, 5975,
+	9, 5995,
+	13, 6015,
+	17, 6035,
+	21, 6055,
+	25, 6075,
+	29, 6095,
+	33, 6115,
+	37, 6135,
+	41, 6155,
+	45, 6175,
+	49, 6195,
+	53, 6215,
+	57, 6235,
+	61, 6255,
+	65, 6275,
+	69, 6295,
+	73, 6315,
+	77, 6335,
+	81, 6355,
+	85, 6375,
+	89, 6395,
+	93, 6415,
+	97, 6435,
+	101, 6455,
+	105, 6475,
+	109, 6495,
+	113, 6515,
+	117, 6535,
+	121, 6555,
+	125, 6575,
+	129, 6595,
+	133, 6615,
+	137, 6635,
+	141, 6655,
+	145, 6675,
+	149, 6695,
+	153, 6715,
+	157, 6735,
+	161, 6755,
+	165, 6775,
+	169, 6795,
+	173, 6815,
+	177, 6835,
+	181, 6855,
+	185, 6875,
+	189, 6895,
+	193, 6915,
+	197, 6935,
+	201, 6955,
+	205, 6975,
+	209, 6995,
+	213, 7015,
+	217, 7035,
+	221, 7055,
+	225, 7075,
+	229, 7095,
+	233, 7115,
+	-1, -1     // End marker
+};
+
+#define MAX_FREQS 1000
+#define MAX_FREQ_STR_LEN 6 // Each frequency is at most 5 digits plus a comma
+
+
 static int * frequencies;
 
 static volatile int quitting = 0;
@@ -274,6 +361,7 @@ static struct local_options
 	unsigned long min_pkts;
 
 	int relative_time; /* read PCAP in psuedo-real-time */
+	int scan_11ax;
 } lopt;
 
 static void resetSelection(void)
@@ -795,8 +883,9 @@ static const char usage[] =
 	"      --ht20                : Set channel to HT20 (802.11n)\n"
 	"      --ht40-               : Set channel to HT40- (802.11n)\n"
 	"      --ht40+               : Set channel to HT40+ (802.11n)\n"
+	"      -X                    : Capture on 802.11ax 6E channels\n"
 	"      --channel <channels>  : Capture on specific channels\n"
-	"      --band <abg>          : Band on which airodump-ng should hop\n"
+	"      --band <abgx>          : Band on which airodump-ng should hop\n"
 	"      -C    <frequencies>   : Uses these frequencies in MHz to hop\n"
 	"      --cswitch  <method>   : Set channel switching method\n"
 	"                    0       : FIFO (default)\n"
@@ -2011,8 +2100,72 @@ skip_probe:
 				ap_cur->ac_channel.center_sgmt[1] = p[4];
 			}
 
+			// Ext tag
+			if (p[0] == 0xff)
+			{
+				// HE Operation
+				if (p[2] == 0x24) {
+					// Standard is AX
+					strcpy(ap_cur->standard, "ax");
+					
+					if (p[1] >= 3) {
+						// Process 3-byte HE Operations flags field with reverse byte order
+						int he_ops_flags = (p[3] << 16) | (p[4] << 8) | p[5];
+
+						// Check if the 22nd bit (second to last bit) in these flags is set
+						if (he_ops_flags & (1 << 1)) // Second to last bit in 24-bit field
+						{
+							// Parse BSS Color Information (1 byte)
+							// int bss_color_info = p[6];
+
+							// Parse Basic HE-MCS and NSS Set (2 bytes)
+							// int he_mcs_nss_set = (p[7] << 8) | p[8];
+
+							// Parse 6GHz operation information (5 bytes)
+							if (p[1] >= 10) // Ensure enough length for 6GHz operation info
+							{
+								// Primary channel number
+								ap_cur->channel = p[9];
+
+								// Control flags
+								int control_flags = p[10];
+
+								// Channel center frequency segments
+								ap_cur->ax_channel.center_sgmt[0] = p[11];
+								ap_cur->ax_channel.center_sgmt[1] = p[12];
+
+								// After parsing control_flags and center frequency segments
+								if (ap_cur->ax_channel.center_sgmt[1] == 0) {
+									// Check the last two bits for confirmation
+									if (control_flags & (1 << 1)) { // 160 MHz
+										ap_cur->channel_width = CHANNEL_160MHZ;
+										ap_cur->ax_channel.mhz_160_chan = 1;
+										ap_cur->ax_channel.split_chan = 0;
+									} else if (control_flags & 1) { // 80+80 MHz (unlikely in this case)
+										ap_cur->channel_width = CHANNEL_80_80MHZ;
+										ap_cur->ax_channel.mhz_160_chan = 0;
+										ap_cur->ax_channel.split_chan = 1;
+									} else {
+										// Default to 160 MHz if Segment 1 is 0 and no flags are set
+										ap_cur->channel_width = CHANNEL_160MHZ;
+										ap_cur->ax_channel.mhz_160_chan = 1;
+										ap_cur->ax_channel.split_chan = 0;
+									}
+								} else {
+									// If center segment 1 is not 0, likely 80+80 MHz
+									ap_cur->channel_width = CHANNEL_80_80MHZ;
+									ap_cur->ax_channel.split_chan = 1;
+									ap_cur->ax_channel.mhz_160_chan = 0;
+								}
+							}
+						}
+					}
+				}
+			} 
+			
 			// Next
 			p += 2 + p[1];
+			
 		}
 
 		// Now get max rate
@@ -5207,14 +5360,42 @@ frequency_hopper(struct wif * wi[], int if_num, int chan_count, pid_t parent)
 	exit(0);
 }
 
-static inline int invalid_channel(int chan)
+// Function to map 6 GHz channel number to frequency (in MHz)
+int channel_to_frequency_ax(int channel) {
+    // Iterate over the lookup table to find the frequency
+    for (int i = 0; channel_frequency_map[i] != -1; i += 2) {
+        if (channel_frequency_map[i] == channel) {
+            return channel_frequency_map[i + 1];
+        }
+    }
+    return -1; // Channel not found, return invalid
+}
+
+// Function to convert channel array to frequency string
+void channels_to_freq_string_ax(const int *channels, char *freq_string) {
+    char buffer[MAX_FREQ_STR_LEN];
+    int first = 1;
+
+    for (int i = 0; channels[i] != 0; ++i) {
+		
+        int freq = channel_to_frequency_ax(channels[i]);
+        if (freq > 0) {
+            // Format frequency and append to string
+            snprintf(buffer, sizeof(buffer), first ? "%d" : ",%d", freq);
+            strncat(freq_string, buffer, MAX_FREQ_STR_LEN);
+            first = 0;
+        }
+    }
+}
+
+static inline int invalid_channel(int chan, int is_6GHz)
 {
 	int i = 0;
-
+	const int *channel_array = is_6GHz ? ax_chans : abg_chans;
 	do
 	{
-		if (chan == abg_chans[i] && chan != 0) return (0);
-	} while (abg_chans[++i]);
+		if (chan == channel_array[i] && chan != 0) return (0);
+	} while (channel_array[++i]);
 	return (1);
 }
 
@@ -5239,7 +5420,7 @@ static int getchannels(const char * optarg)
 	char *optchan = NULL, *optc;
 	char * token = NULL;
 	int tmp_channels[GETCHANNELS_CHAN_MAX + 1] = {0};
-
+	
 	// got a NULL pointer?
 	if (optarg == NULL) return (-1);
 
@@ -5283,7 +5464,7 @@ static int getchannels(const char * optarg)
 					}
 					for (i = chan_first; i <= chan_last; i++)
 					{
-						if ((!invalid_channel(i)) && (chan_remain > 0))
+						if ((!invalid_channel(i, lopt.scan_11ax)) && (chan_remain > 0))
 						{
 							tmp_channels[chan_max - chan_remain] = i;
 							chan_remain--;
@@ -5316,7 +5497,7 @@ static int getchannels(const char * optarg)
 
 			if (sscanf(token, "%zu", &chan_cur) != EOF)
 			{
-				if ((!invalid_channel(chan_cur)) && (chan_remain > 0))
+				if ((!invalid_channel(chan_cur, lopt.scan_11ax)) && (chan_remain > 0))
 				{
 					tmp_channels[chan_max - chan_remain] = chan_cur;
 					chan_remain--;
@@ -5345,6 +5526,7 @@ static int getchannels(const char * optarg)
 	lopt.own_channels[i] = 0;
 
 	free(optc);
+
 	if (i == 1) return (lopt.own_channels[0]);
 	if (i == 0) return (-1);
 	return (0);
@@ -5782,6 +5964,8 @@ int main(int argc, char * argv[])
 	int wi_read_failed = 0;
 	int n = 0;
 	int output_format_first_time = 1;
+	char freq_string[MAX_FREQS * MAX_FREQ_STR_LEN] = {0};
+
 #ifdef HAVE_PCRE
 	const char * pcreerror;
 	int pcreerroffset;
@@ -6033,7 +6217,7 @@ int main(int argc, char * argv[])
 		option
 			= getopt_long(argc,
 						  argv,
-						  "b:c:egiw:s:t:u:m:d:N:R:aHDB:Ahf:r:EC:o:x:MUI:WK:n:T",
+						  "b:c:egiw:s:t:u:m:d:N:R:aHDB:Ahf:r:EC:o:x:MUI:WK:n:T:X",
 						  long_options,
 						  &option_index);
 
@@ -6129,16 +6313,19 @@ int main(int argc, char * argv[])
 
 				lopt.show_wps = 1;
 				break;
+			
+			case 'X':
+    			// Set a flag or variable indicating that 802.11ax scanning is selected
+    			lopt.scan_11ax = 1;
+    			break;
 
 			case 'c':
-
 				if (lopt.channel[0] > 0 || lopt.chanoption == 1)
 				{
 					if (lopt.chanoption == 1)
 						printf("Notice: Channel range already given\n");
 					else
-						printf("Notice: Channel already given (%d)\n",
-							   lopt.channel[0]);
+						printf("Notice: Channel already given (%d)\n", lopt.channel[0]);
 					break;
 				}
 
@@ -6150,14 +6337,31 @@ int main(int argc, char * argv[])
 					return (EXIT_FAILURE);
 				}
 
-				lopt.chanoption = 1;
-
-				if (lopt.channel[0] == 0)
-				{
+				// if getchannels returns 0, that means we had a channel list
+				if (lopt.channel[0] == 0) {
 					lopt.channels = lopt.own_channels;
+				} else { // otherwise we just had a single channel
+					lopt.channels = lopt.channel;
+				}
+
+				if (lopt.scan_11ax) {
+					// Convert the channel array to frequency string for 6 GHz channels
+					// Function to be implemented: channels_to_freq_string_ax(lopt.channel, lopt.freqstring);
+					// For now, assuming the function fills lopt.freqstring appropriately
+					channels_to_freq_string_ax(lopt.channels, freq_string);
+
+					freq_string[sizeof(freq_string) - 1] = '\0';
+
+					printf("Frequency String: %s\n", freq_string);
+					lopt.chanoption = 0; // Reset channel option
+					lopt.freqoption = 1; // Set frequency option
+					lopt.freqstring = freq_string;
+					break;
+				} else {
+					lopt.chanoption = 1;
 					break;
 				}
-				lopt.channels = (int *) bg_chans;
+				lopt.channels = (int *) bg_chans; // Use standard channel set
 				break;
 
 			case 'C':
@@ -6199,6 +6403,8 @@ int main(int argc, char * argv[])
 						freq[1] = 1;
 					else if (optarg[i] == 'b' || optarg[i] == 'g')
 						freq[0] = 1;
+					else if (optarg[i] == 'x')
+						freq[0] = 3;
 					else
 					{
 						printf("Error: invalid band (%c)\n", optarg[i]);
@@ -6209,6 +6415,9 @@ int main(int argc, char * argv[])
 
 				if (freq[1] + freq[0] == 2)
 					lopt.channels = (int *) abg_chans;
+				else if (freq[0] == 3)
+					// placeholder for setting the standard ax frequencies
+					break;
 				else
 				{
 					if (freq[1] == 1)
