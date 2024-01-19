@@ -258,6 +258,160 @@ static const int channel_frequency_map_ax[] = {
 #define MAX_FREQS 1000
 #define MAX_FREQ_STR_LEN 6 // Each frequency is at most 5 digits plus a comma
 
+// PPI Header Structure
+struct ppi_hdr {
+    uint8_t  pph_version;
+    uint8_t  pph_flags;
+    uint16_t pph_len;
+    uint32_t pph_dlt;
+};
+
+// PPI Field Header Structure
+struct ppi_fieldhdr {
+    uint16_t pfh_type;
+    uint16_t pfh_datalen;
+};
+
+// Constants for PPI
+#define PPI_HDRLEN sizeof(struct ppi_hdr)
+#define PPI_FIELD_HDRLEN sizeof(struct ppi_fieldhdr)
+#define PPI_80211_COMMON 2
+#define PPI_GEOTAG 30002
+
+// Example function to convert floating-point GPS data to a fixed-point representation
+uint32_t floatToFixed37(float value) {
+    return (uint32_t)((value + 180)* 10000000); // Example conversion
+}
+
+uint32_t floatToFixed64(float value) {
+	return (uint32_t)((value + 180000.0) * 10000);
+}
+
+size_t calculate_ppi_header_length(float gpsLat, float gpsLon, float gpsAlt) {
+    size_t ppi_total_len = PPI_HDRLEN; // Base length of PPI header - 4 bytes
+
+    // Add length of the 802.11-Common PPI data header
+    ppi_total_len += PPI_FIELD_HDRLEN + 20; // 20 is the fixed length of the 802.11-Common data (total of 24)
+
+    // Check if GPS data is available
+    if (gpsLat != 0 && gpsLon != 0) {
+        // Add length of the PPI-GEOLOCATION data fields
+        ppi_total_len += PPI_FIELD_HDRLEN; // 4 bytes  
+		ppi_total_len += 2 * sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint32_t); // Geo Tag header [rev (1 byte), padding (1 byte), len (2 bytes), field mask (4 bytes)]
+        ppi_total_len += 2 * sizeof(uint32_t);// Lat, Lon
+        if (gpsAlt != 0) {
+             ppi_total_len += sizeof(uint32_t); // Altitude
+        }
+    }
+
+    return ppi_total_len;
+}
+
+void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, uint16_t freq, int8_t rssi, int8_t noise, float gpsLat, float gpsLon, float gpsAlt) {
+    struct ppi_hdr pph;
+    struct ppi_fieldhdr pfh;
+    uint32_t gpsFieldMask = 0;
+    uint32_t fixedLat, fixedLon, fixedAlt;
+	uint16_t geoFhLen;
+	uint8_t geoTagRev = 2;
+	uint8_t geoTagPad = 0;
+	uint16_t geoTagHeaderLen;
+    size_t ppi_total_len = PPI_HDRLEN;
+
+    // Initialize PPI header
+    pph.pph_version = 0;
+    pph.pph_flags = 0;
+    pph.pph_len = PPI_HDRLEN;  // Will be updated later
+    pph.pph_dlt = 105;  // Example DLT value for 802.11
+
+    // Write initial PPI header to file
+    fwrite(&pph, 1, PPI_HDRLEN, file);
+
+    // Prepare and write the 802.11-Common PPI data header
+    pfh.pfh_type = PPI_80211_COMMON;
+    pfh.pfh_datalen = 20;
+    fwrite(&pfh, 1, PPI_FIELD_HDRLEN, file);
+    fwrite(&tsfTimer, 1, sizeof(tsfTimer), file); // TSF Timer
+	// Flags (2 bytes, zeroed)
+	uint16_t flags = 0;
+	fwrite(&flags, 1, sizeof(flags), file);
+    fwrite(&dataRate, 1, sizeof(dataRate), file); // Data Rate
+    fwrite(&freq, 1, sizeof(freq), file);         // Frequency
+	// Channel Flags (2 bytes, zeroed)
+	uint16_t channelFlags = 0;
+	fwrite(&channelFlags, 1, sizeof(channelFlags), file);
+
+	// FHSS Hopset (1 byte, zeroed)
+	uint8_t fhssHopset = 0;
+	fwrite(&fhssHopset, 1, sizeof(fhssHopset), file);
+
+	// FHSS Pattern (1 byte, zeroed)
+	uint8_t fhssPattern = 0;
+	fwrite(&fhssPattern, 1, sizeof(fhssPattern), file);
+    fwrite(&rssi, 1, sizeof(rssi), file);         // RSSI
+    fwrite(&noise, 1, sizeof(noise), file);       // Noise
+
+    // Update total length to include 802.11-Common header
+    ppi_total_len += PPI_FIELD_HDRLEN + pfh.pfh_datalen;
+
+    // Check if GPS data is available
+    if (gpsLat != 0 && gpsLon != 0) {//&& gpsAlt != 0) {
+        // Convert GPS data to fixed-point representation
+        fixedLat = floatToFixed37(gpsLat);
+        fixedLon = floatToFixed37(gpsLon);
+        gpsFieldMask |= 0b00000110; // Lat/Long fields present
+		if (gpsAlt != 0) {
+			fixedAlt = floatToFixed64(gpsAlt);
+        	gpsFieldMask |= 0b00001000; // Altitude field present
+		}
+        // Prepare and write PPI-GEOLOCATION data fields
+		// prepare the geo field header - 4 bytes (PPI Vendor tag + length[geotag header + gps data])
+        pfh.pfh_type = (uint16_t)(PPI_GEOTAG);
+		geoFhLen = 8 + sizeof(fixedLat) + sizeof(fixedLon); 
+		if (gpsAlt != 0) {
+			geoFhLen += sizeof(fixedAlt);
+		}
+		pfh.pfh_datalen = geoFhLen;
+        fwrite(&pfh, 1, PPI_FIELD_HDRLEN, file);
+		
+		// prepare the geotag header - 8 bytes (rev, pad, len, field mask)
+		fwrite(&geoTagRev, 1, sizeof(geoTagRev), file);
+		fwrite(&geoTagPad, 1, sizeof(geoTagPad), file);
+		geoTagHeaderLen = 8 + sizeof(fixedLat) + sizeof(fixedLon);
+		if (gpsAlt != 0) {
+			geoTagHeaderLen += sizeof(fixedAlt);
+		}
+		fwrite(&geoTagHeaderLen, 1, sizeof(geoTagHeaderLen), file);
+        fwrite(&gpsFieldMask, 1, sizeof(gpsFieldMask), file);
+
+		//write the gps data itself - 4 bytes lat, 4 bytes lon, 4 bytes alt 
+        fwrite(&fixedLat, 1, sizeof(fixedLat), file);
+        fwrite(&fixedLon, 1, sizeof(fixedLon), file);
+		if (gpsAlt != 0) {
+			fwrite(&fixedAlt, 1, sizeof(fixedAlt), file);
+		}
+
+        // Update total length to include PPI-GEOLOCATION data
+        ppi_total_len += PPI_FIELD_HDRLEN + pfh.pfh_datalen;
+    }
+
+    // Update the PPI header length
+    pph.pph_len = (uint16_t)ppi_total_len;
+
+    // Seek back by the total length of the PPI header and subsequent data
+	fseek(file, -(long)ppi_total_len, SEEK_CUR);
+
+	// Move forward by 2 bytes to skip the pph_version and pph_flags fields
+	fseek(file, 2L, SEEK_CUR);
+
+    // Write the updated PPI header length to the file
+	fwrite(&(pph.pph_len), 1, sizeof(pph.pph_len), file);
+
+    fseek(file, 0, SEEK_END);
+
+}
+
+
 static int * frequencies;
 
 static volatile int quitting = 0;
@@ -3237,6 +3391,16 @@ write_packet:
 
 		pkh.tv_sec = (int32_t) tv.tv_sec;
 		pkh.tv_usec = (int32_t) tv.tv_usec;
+		
+		if (lopt.ppi) {
+			// Example call to write_ppi_headers
+			float gpsLat = lopt.gps_loc[0];
+			float gpsLon = lopt.gps_loc[1];
+			float gpsAlt = lopt.gps_loc[4];
+			size_t ppi_header_len = calculate_ppi_header_length(gpsLat, gpsLon, gpsAlt);
+			// Update caplen in the packet header
+    		pkh.len = pkh.caplen = (uint32_t)(caplen + ppi_header_len);
+		}
 
 		n = sizeof(pkh);
 
@@ -3246,17 +3410,31 @@ write_packet:
 			return (1);
 		}
 
-		fflush(stdout);
+		//fflush(stdout);
 
-		n = pkh.caplen;
+		if (lopt.ppi) {
+			float gpsLat = lopt.gps_loc[0];
+			float gpsLon = lopt.gps_loc[1];
+			float gpsAlt = lopt.gps_loc[4];
+			uint64_t tsfTimer = ri->ri_mactime; // Time Synchronization Function timer, usually a 64-bit value
+			int dataRate = ri->ri_rate / 50000;      // Data rate in Mbps, integer value (e.g., 1 Mbps)
+			int freq = getFrequencyFromChannel(ri->ri_channel);       // Frequency in MHz, for 2.4 GHz band channels (e.g., 2412 MHz for channel 1)
+			int rssi = ri->ri_power;        // Received Signal Strength Indicator, in dBm (e.g., -50 dBm)
+			int noise = ri->ri_noise;      // Noise level in dBm (e.g., -100 dBm)
+			write_ppi_headers(opt.f_cap, tsfTimer, dataRate, freq, rssi, noise, gpsLat, gpsLon, gpsAlt);
+		}
 
-		if (fwrite(h80211, 1, n, opt.f_cap) != (size_t) n)
+		//fflush(stdout);
+
+		//n = pkh.caplen;
+
+		if (fwrite(h80211, 1, caplen, opt.f_cap) != caplen)
 		{
 			perror("fwrite(packet data) failed");
 			return (1);
 		}
 
-		fflush(stdout);
+		//fflush(stdout);
 	}
 
 	return (0);
@@ -6551,11 +6729,6 @@ int main(int argc, char * argv[])
 			
 			case 'p':
 
-				if (!(opt.usegpsd)) {
-					printf("--gpsd option must be used with ppi creation option. Ignoring this flag.\n");
-					sleep(1);
-					break;
-				}
 				lopt.ppi = 1;
 				break;
 
@@ -6869,8 +7042,9 @@ int main(int argc, char * argv[])
 				airodump_usage();
 				return (EXIT_FAILURE);
 		}
+		
 	} while (1);
-
+	
 	if (argc - optind != 1 && opt.s_file == NULL)
 	{
 		if (argc == 1)
@@ -7060,6 +7234,11 @@ int main(int argc, char * argv[])
 		perror("setuid");
 	}
 
+	if (!(opt.usegpsd) && lopt.ppi) {
+		printf("--gpsd option must be used with ppi creation option. Ignoring this flag.\n");
+		sleep(1);
+	}
+
 	/* check if there is an input file */
 	if (opt.s_file != NULL)
 	{
@@ -7105,10 +7284,11 @@ int main(int argc, char * argv[])
 
 	/* open or create the output files */
 
-	if (opt.record_data)
-		if (dump_initialize_multi_format(lopt.dump_prefix, ivs_only))
+	if (opt.record_data) {
+		int ppi = lopt.ppi;
+		if (dump_initialize_multi_format(lopt.dump_prefix, ivs_only, ppi))
 			return (EXIT_FAILURE);
-
+	}
 	struct sigaction action;
 	action.sa_flags = 0;
 	action.sa_handler = &sighandler;

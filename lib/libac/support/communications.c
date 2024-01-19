@@ -956,7 +956,7 @@ static const char * f_ext[] = {AIRODUMP_NG_CSV_EXT,
 							   AIRODUMP_NG_LOG_CSV_EXT};
 
 /* setup the output files */
-int dump_initialize_multi_format(char * prefix, int ivs_only)
+int dump_initialize_multi_format(char * prefix, int ivs_only, int ppi)
 {
 	REQUIRE(prefix != NULL);
 	REQUIRE(*prefix != '\0');
@@ -1136,8 +1136,11 @@ int dump_initialize_multi_format(char * prefix, int ivs_only)
 		pfh.thiszone = 0;
 		pfh.sigfigs = 0;
 		pfh.snaplen = 65535;
-		pfh.linktype = LINKTYPE_IEEE802_11;
-
+		if (ppi) {
+			pfh.linktype = LINKTYPE_PPI_HDR;
+		} else {
+			pfh.linktype = LINKTYPE_IEEE802_11;
+		}
 		if (fwrite(&pfh, 1, sizeof(pfh), opt.f_cap) != (size_t) sizeof(pfh))
 		{
 			perror("fwrite(pcap file header) failed");
@@ -1201,7 +1204,7 @@ int dump_initialize(char * prefix)
 {
 	opt.output_format_pcap = 1;
 
-	return dump_initialize_multi_format(prefix, 0);
+	return dump_initialize_multi_format(prefix, 0, 0);
 }
 
 int check_shared_key(const uint8_t * h80211, size_t caplen)
