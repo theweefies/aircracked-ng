@@ -561,6 +561,7 @@ static struct local_options
 	int relative_time; /* read PCAP in psuedo-real-time */
 	int scan_11ax;
 	int ppi;
+	int target;
 } lopt;
 
 static void resetSelection(void)
@@ -1036,9 +1037,9 @@ static const char usage[] =
 	"  Options:\n"
 	"      --ivs                 : Save only captured IVs\n"
 	"      --gpsd                : Use GPSd\n"
-	"      --write      <prefix> : Dump file prefix\n"
+	"      -w / --write <prefix> : Dump file prefix\n"
 	"      -w                    : same as --write \n"
-	"      -p                    : Create pcap PPI headers with gps info\n"
+	"      -p / --ppi            : Create pcap PPI headers with radiotap/gps tags\n"
 	"      --beacons             : Record all beacons in dump file\n"
 	"      --update       <secs> : Display update delay in seconds\n"
 	"      --showack             : Prints ack/cts/rts statistics\n"
@@ -1055,7 +1056,7 @@ static const char usage[] =
 	"      --manufacturer        : Display manufacturer from IEEE OUI list\n"
 	"      --uptime              : Display AP Uptime from Beacon Timestamp\n"
 	"      --wps                 : Display WPS information (if any)\n"
-	"      --output-format\n"
+	"      -o / --output-format\n"
 	"                  <formats> : Output format. Possible values:\n"
 	"                              pcap, ivs, csv, gps, kismet, netxml, "
 	"logcsv\n"
@@ -1066,12 +1067,15 @@ static const char usage[] =
 	"      --background <enable> : Override background detection.\n"
 	"      -n              <int> : Minimum AP packets recv'd before\n"
 	"                              for displaying it\n"
+	"      -z / --target \n"
+	"              <mac or file> : Enter a target mac to highlight\n"
+	"                              or pass a file of newline separated macs\n"
 	"\n"
 	"  Filter options:\n"
-	"      --encrypt   <suite>   : Filter APs by cipher suite\n"
-	"      --netmask <netmask>   : Filter APs by mask\n"
-	"      --bssid     <bssid>   : Filter APs by BSSID\n"
-	"      --essid     <essid>   : Filter APs by ESSID\n"
+	"      --encrypt     <suite> : Filter APs by cipher suite\n"
+	"      --netmask   <netmask> : Filter APs by mask\n"
+	"      --bssid       <bssid> : Filter APs by BSSID\n"
+	"      --essid       <essid> : Filter APs by ESSID\n"
 #ifdef HAVE_PCRE
 	"      --essid-regex <regex> : Filter APs by ESSID using a regular\n"
 	"                              expression\n"
@@ -1083,10 +1087,10 @@ static const char usage[] =
 	"      --ht20                : Set channel to HT20 (802.11n)\n"
 	"      --ht40-               : Set channel to HT40- (802.11n)\n"
 	"      --ht40+               : Set channel to HT40+ (802.11n)\n"
-	"      -X                    : Capture on 802.11ax 6E channels\n"
-	"      --channel <channels>  : Capture on specific channels\n"
-	"      --band <abgx>          : Band on which airodump-ng should hop\n"
-	"      -C    <frequencies>   : Uses these frequencies in MHz to hop\n"
+	"      -X / --80211ax        : Capture on 802.11ax 6E channels. Must use -c with 6E channel number\n"
+	"      -c / --channel <chs>  : Capture on specific channels\n"
+	"      -b / --band   <abgx>  : Band on which airodump-ng should hop\n"
+	"      -C     <frequencies>  : Uses these frequencies in MHz to hop\n"
 	"      --cswitch  <method>   : Set channel switching method\n"
 	"                    0       : FIFO (default)\n"
 	"                    1       : Round Robin\n"
@@ -6282,6 +6286,9 @@ int main(int argc, char * argv[])
 		   {"background", 1, 0, 'K'},
 		   {"min-packets", 1, 0, 'n'},
 		   {"real-time", 0, 0, 'T'},
+		   {"80211ax", 0, 0, 'X'},
+		   {"ppi", 0, 0, 'p'},
+		   {"target", 1, 0, 'z'},
 		   {0, 0, 0, 0}};
 
 	pid_t main_pid = getpid();
@@ -6468,7 +6475,7 @@ int main(int argc, char * argv[])
 		option
 			= getopt_long(argc,
 						  argv,
-						  "b:c:egiw:s:t:u:m:d:N:R:aHDB:Ahf:r:EC:o:x:MUI:WK:n:T:X:p",
+						  "b:c:egiw:s:t:u:m:d:N:R:aHDB:Ahf:r:EC:o:x:MUI:WK:n:T:X:pz",
 						  long_options,
 						  &option_index);
 
@@ -6691,6 +6698,11 @@ int main(int argc, char * argv[])
 						lopt.channels = (int *) bg_chans;
 					lopt.chanoption = 1;
 				}
+				break;
+
+			case 'z':
+
+				lopt.target = 1;
 				break;
 
 			case 'i':
