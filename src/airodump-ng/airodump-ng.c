@@ -3410,7 +3410,7 @@ write_packet:
 			return (1);
 		}
 
-		//fflush(stdout);
+		fflush(stdout);
 
 		if (lopt.ppi) {
 			float gpsLat = lopt.gps_loc[0];
@@ -3424,8 +3424,6 @@ write_packet:
 			write_ppi_headers(opt.f_cap, tsfTimer, dataRate, freq, rssi, noise, gpsLat, gpsLon, gpsAlt);
 		}
 
-		//fflush(stdout);
-
 		//n = pkh.caplen;
 
 		if (fwrite(h80211, 1, caplen, opt.f_cap) != caplen)
@@ -3434,7 +3432,7 @@ write_packet:
 			return (1);
 		}
 
-		//fflush(stdout);
+		fflush(stdout);
 	}
 
 	return (0);
