@@ -30,6 +30,7 @@ sudo ldconfig
 # Aircracked-ng changes
 
 This version of the aircrack suite contains changes to aireplay-ng, airodump-ng:
+
 airodump-ng:
 - NEW FEATURES 
     - ppi/radiotap creation:   Pass the -p/--ppi option with --gpsd to create radiotap/ppi geo headers. Currently, the TSF Timer, frequency, RSSI, noise, and rate are being pulled from ri structure for radiotap data. Some of these may need to be modified or adjusted (specifically the rate) due to my misconceptions or misunderstanding of the existing code. The GPS information used for geotagging is the lat, lon, and altitude. May add speed as well.
