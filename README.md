@@ -29,13 +29,85 @@ sudo ldconfig
 
 # Aircracked-ng changes
 
-This version of the aircrack suite contains changes primarily to the aireplay-ng binary:
-- UPDATED - Deauthentication:   Reason code default is now set to reason code 1. Deauthentication frames specified in the count are true to the count, except in instances where the interface is shared with airodump.
+This version of the aircrack suite contains changes to aireplay-ng, airodump-ng:
+airodump-ng:
+- NEW FEATURES 
+    - ppi/radiotap creation:   Pass the -p/--ppi option with --gpsd to create radiotap/ppi geo headers. Currently, the TSF Timer, frequency, RSSI, noise, and rate are being pulled from ri structure for radiotap data. Some of these may need to be modified or adjusted (specifically the rate) due to my misconceptions or misunderstanding of the existing code. The GPS information used for geotagging is the lat, lon, and altitude. May add speed as well.
+    - 802.11ax/6E support:     Pass the -X/--80211ax option to use standard 6E primary channel numbers with the -c option. Also added 'x' character to accepted bands with use of the --band option. Supports use of other bands, a, b, g by using freq mappings for other bands and using frequency scanning mode.
+    - Targeting mode:          Pass the -z/--target to use targeting mode. Option can accept single mac address or file of new-line separated MACs. Will highlight identified MAC in AP or STA display tables. 
+
+- src/airodump-ng/airodump-ng.c:
+    line:
+      - 130: ax_all_chans array
+      - 140: ax_chans array
+      - 148: channel_frequency_map_bg
+      - 166: channel_frequency_map_a
+      - 194: channel_frequency_map_ax
+      - 258: frequency defines
+      - 261-412: ppi header functions/vars
+      - 562: 3x lopt additions
+      - 567-625: targeting globals
+      - 1089: modified usage table
+      - 1758: Need to set some of the 802.11ax properties to zero for new ap_cur
+      - 2367-2428: Ext. Tag and HE Operation parsing for AX
+      - 3459-3493: PPI writing calls and logic
+      - 4162-4167: Target AP identification and marking
+      - 4573-4583: Target STA identification and marking
+      - 4665: Need to update Target NA Station identification and marking
+      - 5672-5726: Added functions deal with converting channels to frequency strings
+      - 5728: modified invalid_channel to account for ax channels
+      - 5752: modified getchannels to account for ax channels
+      - 6296: updated freq array to hold 3x options (a, bg, ax)
+      - 6304: added freq_string to hold updated frequencies
+      - 6340: updated long_options array
+      - 6462: set new lopts to 0
+      - 6563: updated short options string
+      - 6661: added case 'X' for 802.11ax
+      - 6667: modified case 'c' for ax parsing; should retain default behavior if -X is not passed
+      - 6736: modified case 'b' for ax band use 
+      - 6788: added case 'z' for target mac highlighting
+      - 7340: added logic to ensure that gpsd option is passed with ppi option (maybe get rid of this; it would be nice to just build radiotap header)
+      - 7392: added argument ppi to dump_initialize_multi_format call
+
+- include/aircrack-ng/support/station.h:
+    line:
+      - 85: added ax_channel_info structure. This definitely needs to be more robust, but it serves its purpose.
+      - 122: added ax_channel declaration
+      - 230: added marked and marked_color to ST_info
+
+- include/aircrack-ng/support/communications.h:
+    line:
+      - 374: added ppi argument to dump_initialize_multi_format function signature
+
+- lib/libac/support/communications.c:
+    line:
+      - 959: added ppi argument to dump_initialize_multi_format
+      - 1139: added logic test for ppi, so that if we are writing a file with ppi headers we change the linktype in the global header
+      - 1207: added a zero value 3rd argument (ppi) to the return call for dump_initialize, since airodump doesn't use the dump_initialize call, and other programs in the suite might
+      - 
+
+
+aireplay-ng:
+- UPDATED 
+    - Deauthentication:   Reason code default is now set to reason code 1. Deauthentication frames specified in the count are true to the count, except in instances where the interface is shared with airodump.
                                 When a second card/interface is used for airodump or the interface is not shared, the number of frames transmitted is accurate to the count, both for broadcast and directed deauths.
-- NEW FEATURE - Probe Requests: A new option (-P / --probe) has been added to the aireplay-ng binary. This option takes a positive integer for the count, similar to the deauth option. You can pass an
+- NEW FEATURE 
+    - Probe Requests: A new option (-P / --probe) has been added to the aireplay-ng binary. This option takes a positive integer for the count, similar to the deauth option. You can pass an
                                 essid or bssid to send directed probe requests, or nothing to send probe requests and elicit responses from any surrounding APs. Of note: this script first conducts a
                                 hearability check by sending a broadcast probe at intervals until a reponse is received to confirm that AP(s) are present, and then sends the number of directed probes    
-                                specified by the count. The same note above about interface sharing remains true for sending probes as well.  
+                                specified by the count. The same note above about interface sharing remains true for sending probes as well.
+- src/aireplay-ng/aireplay-ng:
+    line:
+      - 183: changed default rc to 1 in usage print statement
+      - 197: added -P/--probe option to send a probe request and listen for a response; purpose is to solicit make/model information in response.
+      - 447-531: removed for loop with hard-coded 64 count deauth. now sends only the count that the user specifies
+      - 5060: added do_probe function to send probes
+      - 6380: updated opt.deauth_rc default to 1. This is operationally the most effective rc.
+      - 6411: updated long_options for --probe option
+      - 6424: update short options string
+      - 6869: added 'P' case statement
+      - 7180: added case return statement for 'P'
+
 # Aircrack-ng
 
 [![Alpine Linux Build Status](https://buildbot.aircrack-ng.org/badges/aircrack-ng-alpine.svg?left_text=Alpine%20Linux%20Build)](https://buildbot.aircrack-ng.org/)
