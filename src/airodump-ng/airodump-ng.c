@@ -6459,6 +6459,8 @@ int main(int argc, char * argv[])
 	lopt.do_exit = 0;
 	lopt.min_pkts = 2;
 	lopt.relative_time = 0;
+	lopt.scan_11ax = 0;
+	lopt.target = 0;
 	lopt.ppi = 0;
 #ifdef CONFIG_LIBNL
 	lopt.htval = CHANNEL_NO_HT;
