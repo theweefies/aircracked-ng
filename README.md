@@ -38,7 +38,7 @@ airodump-ng:
 
     - src/airodump-ng/airodump-ng.c:
       line:
-        - 130: ax_all_chans array\n
+        - 130: ax_all_chans array
         - 140: ax_chans array
         - 148: channel_frequency_map_bg
         - 166: channel_frequency_map_a
@@ -69,22 +69,21 @@ airodump-ng:
         - 7340: added logic to ensure that gpsd option is passed with ppi option (maybe get rid of this; it would be nice to just build radiotap header)
         - 7392: added argument ppi to dump_initialize_multi_format call
 
-- include/aircrack-ng/support/station.h:
-    line:
-      - 85: added ax_channel_info structure. This definitely needs to be more robust, but it serves its purpose.
-      - 122: added ax_channel declaration
-      - 230: added marked and marked_color to ST_info
+    - include/aircrack-ng/support/station.h:
+      line:
+        - 85: added ax_channel_info structure. This definitely needs to be more robust, but it serves its purpose.
+        - 122: added ax_channel declaration
+        - 230: added marked and marked_color to ST_info
 
-- include/aircrack-ng/support/communications.h:
-    line:
-      - 374: added ppi argument to dump_initialize_multi_format function signature
+    - include/aircrack-ng/support/communications.h:
+      line:
+        - 374: added ppi argument to dump_initialize_multi_format function signature
 
-- lib/libac/support/communications.c:
-    line:
-      - 959: added ppi argument to dump_initialize_multi_format
-      - 1139: added logic test for ppi, so that if we are writing a file with ppi headers we change the linktype in the global header
-      - 1207: added a zero value 3rd argument (ppi) to the return call for dump_initialize, since airodump doesn't use the dump_initialize call, and other programs in the suite might
-      - 
+    - lib/libac/support/communications.c:
+      line:
+        - 959: added ppi argument to dump_initialize_multi_format
+        - 1139: added logic test for ppi, so that if we are writing a file with ppi headers we change the linktype in the global header
+        - 1207: added a zero value 3rd argument (ppi) to the return call for dump_initialize, since airodump doesn't use the dump_initialize call, and other programs in the suite might (did a in-file grep and don't see any specific issues this might cause)
 
 
 aireplay-ng:
@@ -96,17 +95,17 @@ aireplay-ng:
                                 essid or bssid to send directed probe requests, or nothing to send probe requests and elicit responses from any surrounding APs. Of note: this script first conducts a
                                 hearability check by sending a broadcast probe at intervals until a reponse is received to confirm that AP(s) are present, and then sends the number of directed probes    
                                 specified by the count. The same note above about interface sharing remains true for sending probes as well.
-- src/aireplay-ng/aireplay-ng:
-    line:
-      - 183: changed default rc to 1 in usage print statement
-      - 197: added -P/--probe option to send a probe request and listen for a response; purpose is to solicit make/model information in response.
-      - 447-531: removed for loop with hard-coded 64 count deauth. now sends only the count that the user specifies
-      - 5060: added do_probe function to send probes
-      - 6380: updated opt.deauth_rc default to 1. This is operationally the most effective rc.
-      - 6411: updated long_options for --probe option
-      - 6424: update short options string
-      - 6869: added 'P' case statement
-      - 7180: added case return statement for 'P'
+    - src/aireplay-ng/aireplay-ng:
+      line:
+        - 183: changed default rc to 1 in usage print statement
+        - 197: added -P/--probe option to send a probe request and listen for a response; purpose is to solicit make/model information in response.
+        - 447-531: removed for loop with hard-coded 64 count deauth. now sends only the count that the user specifies
+        - 5060: added do_probe function to send probes
+        - 6380: updated opt.deauth_rc default to 1. This is operationally the most effective rc.
+        - 6411: updated long_options for --probe option
+        - 6424: update short options string
+        - 6869: added 'P' case statement
+        - 7180: added case return statement for 'P'
 
 # Aircrack-ng
 
