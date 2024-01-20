@@ -564,6 +564,66 @@ static struct local_options
 	int target;
 } lopt;
 
+/* targeting globals*/
+#define MAX_TARGETS 100
+unsigned char targets[MAX_TARGETS][6]; // Array to store MAC addresses
+int num_targets = 0; // Number of MAC addresses stored
+
+// Function to validate a MAC address
+int isValidMACAddress(const char *mac) {
+    int i = 0, s = 0;
+
+    for (i = 0; mac[i] != '\0'; i++) {
+        if ((i % 3 == 2 && mac[i] != ':') || (i % 3 != 2 && !isxdigit(mac[i]))) {
+            return 0; // Invalid MAC
+        }
+        if (i % 3 != 2) s++;
+    }
+
+    return s == 12 && i == 17; // Valid MAC has 12 hex digits and 5 colons
+}
+
+// Function to convert MAC address string to byte array
+int convertMACToBytes(const char *mac_str, uint8_t *mac_bytes) {
+    if (!isValidMACAddress(mac_str)) {
+        return -1; // Invalid MAC address
+    }
+
+    for (int i = 0; i < 6; i++) {
+        unsigned int byte;
+        sscanf(mac_str + 3 * i, "%2x", &byte);
+        mac_bytes[i] = (uint8_t)byte;
+    }
+
+    return 0; // Success
+}
+
+// Function to parse a file for MAC addresses
+int parseMACAddressFile(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) return -1; // File opening failed
+
+    char line[20];
+    while (fgets(line, sizeof(line), file) && num_targets < MAX_TARGETS) {
+        line[strcspn(line, "\n")] = '\0'; // Remove newline character
+        if (convertMACToBytes(line, targets[num_targets]) == 0) {
+            num_targets++;
+        }
+    }
+
+    fclose(file);
+    return 0; // Success
+}
+
+int isTargetMAC(uint8_t *mac_address) {
+    for (int i = 0; i < num_targets; i++) {
+        if (memcmp(mac_address, targets[i], 6) == 0) {
+            return 1; // MAC address is in the targets list
+        }
+    }
+    return 0; // MAC address is not in the targets list
+}
+
 static void resetSelection(void)
 {
 	lopt.sort_by = SORT_BY_NOTHING;
@@ -4098,6 +4158,13 @@ static void dump_print(int ws_row, int ws_col, int if_num)
 			nlines++;
 
 			if (nlines > (ws_row - 1)) return;
+			
+			if (isTargetMAC(ap_cur->bssid)) {
+				if (!(ap_cur->marked)) {
+					ap_cur->marked = 1;
+					ap_cur->marked_color = TEXT_RED;
+				}
+			}
 
 			memset(strbuf, '\0', sizeof(strbuf));
 
@@ -4442,6 +4509,8 @@ static void dump_print(int ws_row, int ws_col, int if_num)
 
 		while (ap_cur != NULL)
 		{
+
+
 			if (ap_cur->nb_pkt < 2 || time(NULL) - ap_cur->tlast > lopt.berlin)
 			{
 				ap_cur = ap_cur->prev;
@@ -4500,6 +4569,18 @@ static void dump_print(int ws_row, int ws_col, int if_num)
 				nlines++;
 
 				if (nlines >= (ws_row - 1)) return;
+
+				if (isTargetMAC(st_cur->stmac)) {
+					if (!(st_cur->marked)) {
+						st_cur->marked = 1;
+						st_cur->marked_color = TEXT_RED;
+					}
+				}
+
+				if (st_cur->marked)
+				{
+					textcolor_fg(st_cur->marked_color);
+				}
 
 				if (!memcmp(ap_cur->bssid, BROADCAST, 6))
 					printf(" (not associated) ");
@@ -4564,6 +4645,8 @@ static void dump_print(int ws_row, int ws_col, int if_num)
 				putchar('\n');
 
 				st_cur = st_cur->prev;
+
+				textstyle(TEXT_RESET);
 			}
 
 			if ((lopt.p_selected_ap
@@ -6702,7 +6785,25 @@ int main(int argc, char * argv[])
 
 			case 'z':
 
+				if (convertMACToBytes(optarg, targets[num_targets]) == 0) {
+					num_targets++;
+				} else if (parseMACAddressFile(optarg) != 0) {
+					fprintf(stderr, "Invalid MAC address or file error.\n");
+					return (EXIT_FAILURE);
+				}
 				lopt.target = 1;
+				for (int i = 0; i < num_targets; ++i) {
+					printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+						targets[i][0],
+						targets[i][1],
+						targets[i][2],
+						targets[i][3],
+						targets[i][4],
+						targets[i][5]);
+				}
+				color_on();
+				snprintf(lopt.message, sizeof(lopt.message), "][ targeting on");
+				//return (EXIT_FAILURE);
 				break;
 
 			case 'i':
