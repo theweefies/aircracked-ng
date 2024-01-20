@@ -6377,7 +6377,7 @@ int main(int argc, char * argv[])
 	opt.rtc = 1;
 	opt.f_retry = 0;
 	opt.reassoc = 0;
-	opt.deauth_rc = 7; /* By default deauth reason code is Unspecified Failure */
+	opt.deauth_rc = 1; /* By default deauth reason code is Unspecified Failure */
 
 /* XXX */
 #if 0
