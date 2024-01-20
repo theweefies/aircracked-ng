@@ -6792,18 +6792,8 @@ int main(int argc, char * argv[])
 					return (EXIT_FAILURE);
 				}
 				lopt.target = 1;
-				for (int i = 0; i < num_targets; ++i) {
-					printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
-						targets[i][0],
-						targets[i][1],
-						targets[i][2],
-						targets[i][3],
-						targets[i][4],
-						targets[i][5]);
-				}
 				color_on();
 				snprintf(lopt.message, sizeof(lopt.message), "][ targeting on");
-				//return (EXIT_FAILURE);
 				break;
 
 			case 'i':
