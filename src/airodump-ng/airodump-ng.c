@@ -561,6 +561,7 @@ static struct local_options
 	int relative_time; /* read PCAP in psuedo-real-time */
 	int scan_11ax;
 	int ppi;
+	double coordinates[2];
 	int target;
 } lopt;
 
@@ -1100,6 +1101,7 @@ static const char usage[] =
 	"      -w / --write <prefix> : Dump file prefix\n"
 	"      -w                    : same as --write \n"
 	"      -p / --ppi            : Create pcap PPI headers with radiotap/gps tags\n"
+	"      -y / --coords         : Provide fixed coordinates for ppi geo tags. Use with --ppi option.\n"
 	"      --beacons             : Record all beacons in dump file\n"
 	"      --update       <secs> : Display update delay in seconds\n"
 	"      --showack             : Prints ack/cts/rts statistics\n"
@@ -3449,6 +3451,7 @@ write_packet:
 
 	if (opt.f_cap != NULL && caplen >= 10)
 	{
+
 		pkh.len = pkh.caplen = (uint32_t) caplen;
 
 		gettimeofday(&tv, NULL);
@@ -3457,13 +3460,20 @@ write_packet:
 		pkh.tv_usec = (int32_t) tv.tv_usec;
 		
 		if (lopt.ppi) {
-			// Example call to write_ppi_headers
-			float gpsLat = lopt.gps_loc[0];
-			float gpsLon = lopt.gps_loc[1];
-			float gpsAlt = lopt.gps_loc[4];
+			float gpsLat = 0, gpsLon = 0, gpsAlt = 0;
+			if (lopt.coordinates[0] != 0 || lopt.coordinates[1] != 0) {
+				gpsLat = (float)lopt.coordinates[0];
+				gpsLon = (float)lopt.coordinates[1];
+				gpsAlt = 0;
+			} else {
+				// call to calculate ppi header length
+				gpsLat = lopt.gps_loc[0];
+				gpsLon = lopt.gps_loc[1];
+				gpsAlt = lopt.gps_loc[4];
+			}
 			size_t ppi_header_len = calculate_ppi_header_length(gpsLat, gpsLon, gpsAlt);
 			// Update caplen in the packet header
-    		pkh.len = pkh.caplen = (uint32_t)(caplen + ppi_header_len);
+			pkh.len = pkh.caplen = (uint32_t)(caplen + ppi_header_len);
 		}
 
 		n = sizeof(pkh);
@@ -3477,9 +3487,18 @@ write_packet:
 		fflush(stdout);
 
 		if (lopt.ppi) {
-			float gpsLat = lopt.gps_loc[0];
-			float gpsLon = lopt.gps_loc[1];
-			float gpsAlt = lopt.gps_loc[4];
+			float gpsLat = 0, gpsLon = 0, gpsAlt = 0;
+			if (lopt.coordinates[0] != 0 || lopt.coordinates[1] != 0) {
+				gpsLat = (float)lopt.coordinates[0];
+				gpsLon = (float)lopt.coordinates[1];
+				gpsAlt = 0;
+			} else {
+				// Example call to write_ppi_headers
+				gpsLat = lopt.gps_loc[0];
+				gpsLon = lopt.gps_loc[1];
+				gpsAlt = lopt.gps_loc[4];
+			}
+
 			uint64_t tsfTimer = ri->ri_mactime; // Time Synchronization Function timer, usually a 64-bit value
 			int dataRate = ri->ri_rate / 50000;      // Data rate in Mbps, integer value (e.g., 1 Mbps)
 			int freq = getFrequencyFromChannel(ri->ri_channel);       // Frequency in MHz, for 2.4 GHz band channels (e.g., 2412 MHz for channel 1)
@@ -4479,6 +4498,10 @@ static void dump_print(int ws_row, int ws_col, int if_num)
 				textstyle(TEXT_RESET);
 			}
 
+			if (lopt.target) {
+				textcolor_fg(TEXT_WHITE);
+			}
+
 			ap_cur = ap_cur->prev;
 		}
 
@@ -4644,9 +4667,12 @@ static void dump_print(int ws_row, int ws_col, int if_num)
 				erase_line(0);
 				putchar('\n');
 
-				st_cur = st_cur->prev;
+				if (lopt.target) {
+					textcolor_fg(TEXT_WHITE);
+				}
 
-				textstyle(TEXT_RESET);
+				st_cur = st_cur->prev;
+				
 			}
 
 			if ((lopt.p_selected_ap
@@ -4654,6 +4680,10 @@ static void dump_print(int ws_row, int ws_col, int if_num)
 				|| (ap_cur->marked))
 			{
 				textstyle(TEXT_RESET);
+			}
+
+			if (lopt.target) {
+				textcolor_fg(TEXT_WHITE);
 			}
 
 			ap_cur = ap_cur->prev;
@@ -6371,6 +6401,7 @@ int main(int argc, char * argv[])
 		   {"real-time", 0, 0, 'T'},
 		   {"80211ax", 0, 0, 'X'},
 		   {"ppi", 0, 0, 'p'},
+		   {"coords", 1, 0, 'y'},
 		   {"target", 1, 0, 'z'},
 		   {0, 0, 0, 0}};
 
@@ -6462,6 +6493,8 @@ int main(int argc, char * argv[])
 	lopt.scan_11ax = 0;
 	lopt.target = 0;
 	lopt.ppi = 0;
+	lopt.coordinates[0] = 0;
+	lopt.coordinates[1] = 0;
 #ifdef CONFIG_LIBNL
 	lopt.htval = CHANNEL_NO_HT;
 #endif
@@ -6560,7 +6593,7 @@ int main(int argc, char * argv[])
 		option
 			= getopt_long(argc,
 						  argv,
-						  "b:c:egiw:s:t:u:m:d:N:R:aHDB:Ahf:r:EC:o:x:MUI:WK:n:T:X:pz",
+						  "b:c:egiw:s:t:u:m:d:N:R:aHDB:Ahf:r:EC:o:x:MUI:WK:n:T:Xpzy:",
 						  long_options,
 						  &option_index);
 
@@ -6798,6 +6831,30 @@ int main(int argc, char * argv[])
 				snprintf(lopt.message, sizeof(lopt.message), "][ targeting on");
 				break;
 
+			case 'y':
+				if (optarg[0] == '-') {
+					fprintf(stderr, "You must pass coordinates when using the --coord option.\n");
+					exit(EXIT_FAILURE);
+				}
+				// Attempt to parse latitude and longitude
+				if (sscanf(optarg, "%lf,%lf", &lopt.coordinates[0], &lopt.coordinates[1]) == 2) {
+					// Validate latitude and longitude
+					if (lopt.coordinates[0] < -90.0 || lopt.coordinates[0] > 90.0 ||
+						lopt.coordinates[1] < -180.0 || lopt.coordinates[1] > 180.0) {
+						fprintf(stderr, "Invalid coordinates: %s\n", optarg);
+						exit(EXIT_FAILURE);
+					}
+				} else {
+					fprintf(stderr, "Invalid format for coordinates: %s\n", optarg);
+					exit(EXIT_FAILURE);
+				}
+				snprintf(lopt.message, sizeof(lopt.message), "][ Fixed Coords ");
+				// Calculate the length of the current message.
+				int len = strlen(lopt.message);
+				// Append the coordinates.
+				snprintf(lopt.message + len, sizeof(lopt.message) - len, "%.6f,%.6f", lopt.coordinates[0], lopt.coordinates[1]);
+				break;
+
 			case 'i':
 
 				// Reset output format if it's the first time the option is
@@ -6829,9 +6886,9 @@ int main(int argc, char * argv[])
 
 				opt.usegpsd = 1;
 				break;
-			
-			case 'p':
 
+			case 'p':
+				
 				lopt.ppi = 1;
 				break;
 
@@ -7337,9 +7394,14 @@ int main(int argc, char * argv[])
 		perror("setuid");
 	}
 
+	// we need to specify the gpsd option when running the ppi option
 	if (!(opt.usegpsd) && lopt.ppi) {
-		printf("--gpsd option must be used with ppi creation option. Ignoring this flag.\n");
-		sleep(1);
+		// but only if we don't specify fixed coordinates
+		if ((lopt.coordinates[0] == 0 && lopt.coordinates[1] == 0)) {
+			printf("--gpsd option must be used with ppi creation option, unless specifying fixed coords. Ignoring this flag.\n");
+			sleep(1);
+			lopt.ppi = 0;
+		}
 	}
 
 	/* check if there is an input file */

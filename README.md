@@ -33,12 +33,13 @@ This version of the aircrack suite contains changes to aireplay-ng, airodump-ng:
 
 airodump-ng:
 - NEW FEATURES 
-    - ppi/radiotap creation:   Pass the -p/--ppi option with --gpsd to create radiotap/ppi geo headers. Currently, the TSF Timer, frequency, RSSI, noise, and rate are being pulled from ri structure for radiotap data. Some of these may need to be modified or adjusted (specifically the rate) due to my misconceptions or misunderstanding of the existing code. The GPS information used for geotagging is the lat, lon, and altitude. May add speed as well.
+    - ppi/radiotap creation:   Pass the -p/--ppi option with --gpsd (or not if using --coords) to create radiotap/ppi geo headers. Currently, the TSF Timer, frequency, RSSI, noise, and rate are being pulled from ri structure for radiotap data. Some of these may need to be modified or adjusted (specifically the rate) due to my misconceptions or misunderstanding of the existing code. The GPS information used for geotagging is the lat, lon, and altitude. May add speed as well.
     - 802.11ax/6E support:     Pass the -X/--80211ax option to use standard 6E primary channel numbers with the -c option. Also added 'x' character to accepted bands with use of the --band option. Supports use of other bands, a, b, g by using freq mappings for other bands and using frequency scanning mode.
     - Targeting mode:          Pass the -z/--target to use targeting mode. Option can accept single mac address or file of new-line separated MACs. Will highlight identified MAC in AP or STA display tables. 
-
+    - Fixed Coordinates:       Pass the -y/--coords option with coordinates in the format 35.121212,-75.232323 (floating point, signed, comma separated). These will be encoded into into the ppi geotag.
     - src/airodump-ng/airodump-ng.c:
       line:
+        - 60: added ctype.h include (i think??)
         - 130: ax_all_chans array
         - 140: ax_chans array
         - 148: channel_frequency_map_bg
@@ -46,29 +47,33 @@ airodump-ng:
         - 194: channel_frequency_map_ax
         - 258: frequency defines
         - 261-412: ppi header functions/vars
-        - 562: 3x lopt additions
-        - 567-625: targeting globals
-        - 1089: modified usage table
-        - 1758: Need to set some of the 802.11ax properties to zero for new ap_cur
-        - 2367-2428: Ext. Tag and HE Operation parsing for AX
-        - 3459-3493: PPI writing calls and logic
-        - 4162-4167: Target AP identification and marking
-        - 4573-4583: Target STA identification and marking
-        - 4665: Need to update Target NA Station identification and marking
-        - 5672-5726: Added functions deal with converting channels to frequency strings
-        - 5728: modified invalid_channel to account for ax channels
-        - 5752: modified getchannels to account for ax channels
-        - 6296: updated freq array to hold 3x options (a, bg, ax)
-        - 6304: added freq_string to hold updated frequencies
-        - 6340: updated long_options array
-        - 6462: set new lopts to 0
-        - 6563: updated short options string
-        - 6661: added case 'X' for 802.11ax
-        - 6667: modified case 'c' for ax parsing; should retain default behavior if -X is not passed
-        - 6736: modified case 'b' for ax band use 
-        - 6788: added case 'z' for target mac highlighting
-        - 7340: added logic to ensure that gpsd option is passed with ppi option (maybe get rid of this; it would be nice to just build radiotap header)
-        - 7392: added argument ppi to dump_initialize_multi_format call
+        - 562: 4x lopt additions - int scan_11ax, int ppi, double coordinates[2], and int target
+        - 569-626: targeting globals
+        - 1090: modified usage table
+        - 1758: TO DO: Need to set some of the 802.11ax properties to zero for new ap_cur
+        - 2369-2430: Ext. Tag and HE Operation parsing for AX
+        - 3462-3522: PPI writing calls and logic for encoding optional fixed coords
+        - 4181-4186: Target AP identification and marking
+        - 4500-4503: Added text fg color default after marking AP target (if in target mode)
+        - 4596-4606: Target STA identification and marking
+        - 4669-4672: Added text fg color default after marking STA target (if in target mode)
+        - 4684-4687: Added text fg color default at end of processing loop to ensure that text resets to ad default (if in target mode)
+        - 4693: TO DO: Maybe update Target NA Station identification and marking?
+        - 5702-5756: Added functions deal with converting channels to frequency strings
+        - 5761: modified invalid_channel to account for ax channels
+        - 5834,5867: modified getchannels to account for ax channels
+        - 6326: updated freq array to hold 3x options (a, bg, ax)
+        - 6334: added freq_string to hold updated frequencies
+        - 6402: updated long_options array (4x) - 80211ax, ppi, coords, target
+        - 6493: set new lopts to 0 (5x), lopt.scan_11ax, lopt.target, lopt.ppi, lopt.coordinates[0], lopt.coordinates[1]
+        - 6596: updated short options string - recent fix to this was left a colon on end of X. Options added: Xpzy:
+        - 6694: added case 'X' for 802.11ax
+        - 6700: modified case 'c' for ax parsing; should retain default behavior if -X is not passed
+        - 6769: modified case 'b' for ax band use 
+        - 6821: added case 'z' for target mac highlighting
+        - 6834: added case 'y' for fixed coordinates option
+        - 7397: added logic to ensure that gpsd option is passed with ppi option (Unless fixed coordinates option is in play; however, it may be desirable to just build the radiotap - this functionality already exists)
+        - 7454: added argument ppi to dump_initialize_multi_format call
 
     - include/aircrack-ng/support/station.h:
       line:
