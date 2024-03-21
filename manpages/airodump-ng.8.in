@@ -7,7 +7,7 @@ airodump-ng - a wireless packet capture tool for aircrack-ng
 [options] <interface name>
 .SH DESCRIPTION
 .BI airodump-ng
-is used for packet capturing of raw 802.11 frames for the intent of using them with aircrack-ng. If you have a GPS receiver connected to the computer, airodump-ng is capable of logging the coordinates of the found access points. Additionally, airodump-ng writes out a text file containing the details of all access points and clients seen.
+is used for packet capturing of raw 802.11 frames for the intent of using them with aircrack-ng. If you have a GPS receiver connected to the computer, airodump-ng is capable of logging the coordinates of the found access points, either in a gps log file or pcap PPI format. Additionally, airodump-ng writes out a text file containing the details of all access points and clients seen.
 .SH OPTIONS
 .PP
 .TP
@@ -22,6 +22,12 @@ Indicate that airodump-ng should try to use GPSd to get coordinates.
 .TP
 .I -w <prefix>, --write <prefix>
 Is the dump file prefix to use. If this option is not given, it will only show data on the screen. Beside this file a CSV file with the same filename as the capture will be created.
+.TP
+.I -p, --ppi
+Create pcap PPI headers with radiotap/gps tags.
+.TP
+.I -y, --coords
+Provide fixed coordinates (floating point) for PPI geo tags. Use with --ppi option. Ex.: --coords 36.456789, -76.123456  
 .TP
 .I -e, --beacons
 It will record all beacons into the cap file. By default it only records one beacon for each network.
@@ -38,14 +44,17 @@ Hides known stations for \-\-showack.
 .I --berlin <secs>
 Time before removing the AP/client from the screen when no more frames are received (Default: 120 seconds). See airodump-ng source for the history behind this option ;).
 .TP
+.I -X, --80211ax
+Capture on 802.11ax 6E channels. Must use with -c to specify 6E channel(s). 
+.TP
 .I -c <channel>[,<channel>[,...]], --channel <channel>[,<channel>[,...]]
 Indicate the channel(s) to listen to. By default airodump-ng hops on all 2.4GHz channels.
 .TP
 .I -C <freq>[,<freq>[,...]]
 Indicates the frequencies to listen to. By default airodump-ng hops on all 2.4GHz channels.
 .TP
-.I -b <abg>, --band <abg>
-Indicate the band on which airodump-ng should hop. It can be a combination of \(aqa\(aq, \(aqb\(aq and \(aqg\(aq letters (\(aqb\(aq and \(aqg\(aq uses 2.4GHz and \(aqa\(aq uses 5GHz). Incompatible with --channel option.
+.I -b <abgx>, --band <abgx>
+Indicate the band on which airodump-ng should hop. It can be a combination of \(aqa\(aq, \(aqb\(aq, \(aqg\(aq, and \(aqx\(aq letters (\(aqb\(aq and \(aqg\(aq uses 2.4GHz, \(aqa\(aq uses 5GHz, and \(aqx\(aq uses 6GHz) . Incompatible with --channel option.
 .TP
 .I -s <method>, --cswitch <method>
 Defines the way airodump-ng sets the channels when using more than one card. Valid values: 0 (FIFO, default value), 1 (Round Robin) or 2 (Hop on last).
@@ -91,6 +100,9 @@ Override automatic background detection. Use "0" to force foreground settings an
 .TP
 .I --ignore-negative-one
 Removes the message that says \(aqfixed channel <interface>: -1\(aq.
+.TP
+.I -z, --target <MAC address or file name>
+Enter a target MAC address or a file path/name of new-line separated, colon-delimited MAC addresses to highlight matches in red. 
 .PP
 .B Filter options:
 .TP

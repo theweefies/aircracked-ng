@@ -39,41 +39,42 @@ airodump-ng:
     - Fixed Coordinates:       Pass the -y/--coords option with coordinates in the format 35.121212,-75.232323 (floating point, signed, comma separated). These will be encoded into into the ppi geotag.
     - src/airodump-ng/airodump-ng.c:
       line:
-        - 60: added ctype.h include (i think??)
-        - 130: ax_all_chans array
-        - 140: ax_chans array
-        - 148: channel_frequency_map_bg
-        - 166: channel_frequency_map_a
-        - 194: channel_frequency_map_ax
-        - 258: frequency defines
-        - 261-412: ppi header functions/vars
-        - 562: 4x lopt additions - int scan_11ax, int ppi, double coordinates[2], and int target
-        - 569-626: targeting globals
-        - 1090: modified usage table
-        - 1758: TO DO: Need to set some of the 802.11ax properties to zero for new ap_cur
-        - 2369-2430: Ext. Tag and HE Operation parsing for AX
-        - 3462-3522: PPI writing calls and logic for encoding optional fixed coords
-        - 4181-4186: Target AP identification and marking
-        - 4500-4503: Added text fg color default after marking AP target (if in target mode)
-        - 4596-4606: Target STA identification and marking
-        - 4669-4672: Added text fg color default after marking STA target (if in target mode)
-        - 4684-4687: Added text fg color default at end of processing loop to ensure that text resets to ad default (if in target mode)
-        - 4693: TO DO: Maybe update Target NA Station identification and marking?
-        - 5702-5756: Added functions deal with converting channels to frequency strings
-        - 5761: modified invalid_channel to account for ax channels
-        - 5834,5867: modified getchannels to account for ax channels
-        - 6326: updated freq array to hold 3x options (a, bg, ax)
-        - 6334: added freq_string to hold updated frequencies
-        - 6402: updated long_options array (4x) - 80211ax, ppi, coords, target
-        - 6493: set new lopts to 0 (5x), lopt.scan_11ax, lopt.target, lopt.ppi, lopt.coordinates[0], lopt.coordinates[1]
-        - 6596: updated short options string - recent fix to this was left a colon on end of X. Options added: Xpzy:
-        - 6694: added case 'X' for 802.11ax
-        - 6700: modified case 'c' for ax parsing; should retain default behavior if -X is not passed
-        - 6769: modified case 'b' for ax band use 
-        - 6821: added case 'z' for target mac highlighting
-        - 6834: added case 'y' for fixed coordinates option
-        - 7397: added logic to ensure that gpsd option is passed with ppi option (Unless fixed coordinates option is in play; however, it may be desirable to just build the radiotap - this functionality already exists)
-        - 7454: added argument ppi to dump_initialize_multi_format call
+        - 60:          added <ctype.h> include (i think??)
+        - 130:         ax_all_chans array
+        - 143:         ax_chans array
+        - 151:         channel_frequency_map_bg
+        - 170:         channel_frequency_map_a
+        - 198:         channel_frequency_map_ax
+        - 263:         letoh24 - function to convert a 3 byte array to host order
+        - 277:         frequency #defines
+        - 280-433:     ppi header functions/vars/#defines
+        - 582:         4x lopt additions - int scan_11ax, int ppi, double coordinates[2], and int target
+        - 588-651:     targeting globals
+        - 1114:        modified usage table
+        - 1787:        Set some of the 802.11ax properties to zero for new ap_cur
+        - 2401-2475:   Ext. Tag and HE Operation parsing for AX
+        - 3507-3567:   PPI writing calls and logic for encoding optional fixed coords
+        - 4226-4231:   Target AP identification and marking
+        - 4546-4549:   Added text fg color default after marking AP target (if in target mode)
+        - 4641-4651:   Target STA identification and marking
+        - 4715-4717:   Added text fg color default after marking STA target (if in target mode)
+        - 4730-4732:   Added text fg color default at end of processing loop to ensure that text resets to ad default (if in target mode)
+        - 4740: TO DO: Maybe update Target NA Station identification and marking?
+        - 5747-5846:   Added functions dealing with converting channels to frequency strings
+        - 5848:        modified invalid_channel to account for ax channels
+        - 5924,5957:   modified getchannels to account for ax channels
+        - 6416:        updated freq array to hold 3x options (a, bg, ax)
+        - 6424:        added freq_string to hold updated frequencies
+        - 6492:        updated long_options array (4x) - 80211ax, ppi, coords, target
+        - 6583:        set new lopts to 0 (5x), lopt.scan_11ax, lopt.target, lopt.ppi, lopt.coordinates[0], lopt.coordinates[1]
+        - 6687:        updated short options string, fix to this was left a colon on end of X. Options   added: Xpzy:
+        - 6785:        added case 'X' for 802.11ax
+        - 6791:        modified case 'c' for ax parsing; should retain default behavior if -X is not passed
+        - 6860:        modified case 'b' for ax band use 
+        - 6912:        added case 'z' for target mac highlighting
+        - 6924:        added case 'y' for fixed coordinates option
+        - 7488:        added logic to ensure that gpsd option is passed with ppi option (Unless fixed coordinates option is in play; however, it may be desirable to just build the radiotap - this functionality already exists)
+        - 7544:        added argument ppi to dump_initialize_multi_format call
 
     - include/aircrack-ng/support/station.h:
       line:
@@ -91,6 +92,13 @@ airodump-ng:
         - 1139: added logic test for ppi, so that if we are writing a file with ppi headers we change the linktype in the global header
         - 1207: added a zero value 3rd argument (ppi) to the return call for dump_initialize, since airodump doesn't use the dump_initialize call, and other programs in the suite might (did a in-file grep and don't see any specific issues this might cause)
 
+    - FIXES - 18 MAR 2024:
+      - 588-651:    - changed MAC address/targeting-related function signatures to static
+      - 624-641:    - Modified parseMACAddressFile to ensure that improperly formatted lines (specifically lines longer than a mac address) are treated in such a manner that the additional characters are read and ignored until a new line character is reached (or end of file). This ensures the next line is read at the start. Additionally, the array size of MAX_TARGETS is protected.
+      - 1787:       - Set some of the 802.11ax properties to zero for new ap_cur
+      - 2401-2475:  - Added more boundary checking through Ext tag (HE Operation) parsing. also added    letoh24 to ensure endianness for different architectures (This includes compiler ifdef block that will add code if big endian to swap bytes, otherwise no swap). This should still be tested on big-endian systems. The arithmetic changes for determining the 6GHz Operation Information presence should be sound. Additionally, a switch and case statement was employed and proper channel width determination was employed based on the 802.11ax-2021 standard. I did not turn this into a function as you originally mentioned in your email - this would be a departure from the way that every other tag is processed in this portion of the code - i can easily make the change, but i wanted confirmation that is what you actually want before doing it.
+      - 5747-5846:  - Added static declaration for channel/frequency mapping functions. Fixed channel_to_frequency_ax: get first and last channel from channel_frequency map and perform boundary check against channel argument. The other functions that perform channel_to_freq_string operations have an inherent boundary check in the inner 'for' loop (loop until -1, which is the end element of each of these arrays). Fixed channels_to_freq_string_ax to respect the boundaries of freq_string and avoid writing beyond its allocated space. Additionally, modified channels_to_freq_string_a (and bg) to ensure that the boundary of freq_string is respected and protected against a buffer overflow.
+      - 6687:       - Added colon after option 'z' in short options string to indicate takes argument(oops).
 
 aireplay-ng:
 - UPDATED 

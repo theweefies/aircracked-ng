@@ -127,24 +127,28 @@ static int a_chans[]
 	   118, 120, 122, 124, 126, 128, 132, 134, 136, 138, 140, 142,
 	   144, 149, 151, 153, 155, 157, 159, 161, 165, 169, 173, 0};
 
+// Define an array of all ax channels - primary and secondary
 int ax_all_chans[] 
-	= {1, 2, 5, 9, 13, 17, 21, 25, 27, 29, 33, 37, 41, 45, 47, 49, 51, 53, 55, 57, 59, 61, 
-	   63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 
-	   93, 95, 97, 99, 101, 103, 105, 107, 109, 111, 113, 115, 117, 
-	   119, 121, 123, 125, 127, 129, 131, 133, 135, 137, 139, 141, 
-	   143, 145, 147, 149, 151, 153, 155, 157, 159, 161, 163, 165, 
-	   167, 169, 171, 173, 175, 177, 179, 181, 183, 185, 187, 189, 
-	   191, 193, 195, 197, 199, 201, 203, 205, 207, 209, 211, 213, 
-	   215, 217, 219, 221, 223, 225, 227, 229, 231, 233, 0};
+	= {1,   2,   5,   9,   13,  17,  21,  25,  27,  29,  33,  37,
+	   41,  45,  47,  49,  51,  53,  55,  57,  59,  61,  63,  65,
+	   67,  69,  71,  73,  75,  77,  79,  81,  83,  85,  87,  89,
+	   91,  93,  95,  97,  99,  101, 103, 105, 107, 109, 111, 113,
+	   115, 117, 119, 121, 123, 125, 127, 129, 131, 133, 135, 137,
+	   139, 141, 143, 145, 147, 149, 151, 153, 155, 157, 159, 161,
+	   163, 165, 167, 169, 171, 173, 175, 177, 179, 181, 183, 185,
+	   187, 189, 191, 193, 195, 197, 199, 201, 203, 205, 207, 209,
+	   211, 213, 215, 217, 219, 221, 223, 225, 227, 229, 231, 233,
+	   0};
 
-int ax_chans[] 
-	= {1, 2, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 
-	49, 53, 57, 61, 65, 69, 73, 77, 81, 85, 89, 93, 97, 
-	101, 105, 109, 113, 117, 121, 125, 129, 133, 137, 
-	141, 145, 149, 153, 157, 161, 165, 169, 173, 177, 
-	181, 185, 189, 193, 197, 201, 205, 209, 213, 217, 
-	221, 225, 229, 233, 0};
+// Define an array of the ax primary channels
+static int ax_chans[] 
+	= {1,   2,   5,   9,   13,  17,  21,  25,  29,  33,  37,  41,
+	   45,  49,  53,  57,  61,  65,  69,  73,  77,  81,  85,  89,
+	   93,  97,  101, 105, 109, 113, 117, 121, 125, 129, 133, 137,
+	   141, 145, 149, 153, 157, 161, 165, 169, 173, 177, 181, 185,
+	   189, 193, 197, 201, 205, 209, 213, 217, 221, 225, 229, 233, 0};
 
+// Define a lookup table for channel to frequency mapping for bg
 static const int channel_frequency_map_bg[] = {
     1, 2412,
     2, 2417,
@@ -163,6 +167,7 @@ static const int channel_frequency_map_bg[] = {
     -1, -1     // End marker
 };
 
+// Define a lookup table for channel to frequency mapping for a
 static const int channel_frequency_map_a[] = {
     36, 5180,
     40, 5200,
@@ -190,34 +195,34 @@ static const int channel_frequency_map_a[] = {
     -1, -1     // End marker
 };
 
-// Define a lookup table for channel to frequency mapping
+// Define a lookup table for channel to frequency mapping for ax
 static const int channel_frequency_map_ax[] = {
-	1, 5955,
-	2, 5935,
-	5, 5975,
-	9, 5995,
-	13, 6015,
-	17, 6035,
-	21, 6055,
-	25, 6075,
-	29, 6095,
-	33, 6115,
-	37, 6135,
-	41, 6155,
-	45, 6175,
-	49, 6195,
-	53, 6215,
-	57, 6235,
-	61, 6255,
-	65, 6275,
-	69, 6295,
-	73, 6315,
-	77, 6335,
-	81, 6355,
-	85, 6375,
-	89, 6395,
-	93, 6415,
-	97, 6435,
+	1,   5955,
+	2,   5935,
+	5,   5975,
+	9,   5995,
+	13,  6015,
+	17,  6035,
+	21,  6055,
+	25,  6075,
+	29,  6095,
+	33,  6115,
+	37,  6135,
+	41,  6155,
+	45,  6175,
+	49,  6195,
+	53,  6215,
+	57,  6235,
+	61,  6255,
+	65,  6275,
+	69,  6295,
+	73,  6315,
+	77,  6335,
+	81,  6355,
+	85,  6375,
+	89,  6395,
+	93,  6415,
+	97,  6435,
 	101, 6455,
 	105, 6475,
 	109, 6495,
@@ -252,8 +257,22 @@ static const int channel_frequency_map_ax[] = {
 	225, 7075,
 	229, 7095,
 	233, 7115,
-	-1, -1     // End marker
+	-1,  -1     // End marker
 };
+
+// Function to convert network order 24-bit values into host-order
+static uint32_t letoh24(const uint8_t *p) {
+    // Manually construct the 24-bit value in little-endian order
+    uint32_t val = (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16);
+
+    // For little-endian systems, the value is already correct.
+    // For big-endian systems, we need to rearrange the bytes.
+    #if __BYTE_ORDER == __BIG_ENDIAN
+    val = ((val & 0x0000FF) << 16) | (val & 0x00FF00) | ((val & 0xFF0000) >> 16);
+    #endif
+
+    return val;
+}
 
 #define MAX_FREQS 1000
 #define MAX_FREQ_STR_LEN 6 // Each frequency is at most 5 digits plus a comma
@@ -278,16 +297,18 @@ struct ppi_fieldhdr {
 #define PPI_80211_COMMON 2
 #define PPI_GEOTAG 30002
 
-// Example function to convert floating-point GPS data to a fixed-point representation
-uint32_t floatToFixed37(float value) {
-    return (uint32_t)((value + 180)* 10000000); // Example conversion
+// Function to convert floating-point GPS data to a fixed-point representation
+static uint32_t float_to_fixed37(float value) {
+    return (uint32_t)((value + 180)* 10000000);
 }
 
-uint32_t floatToFixed64(float value) {
+// Function to convert a float altitude value into a fixed-point representation
+static uint32_t float_to_fixed64(float value) {
 	return (uint32_t)((value + 180000.0) * 10000);
 }
 
-size_t calculate_ppi_header_length(float gpsLat, float gpsLon, float gpsAlt) {
+// Function to calculate the length of the ppi header
+static size_t calculate_ppi_header_length(float gpsLat, float gpsLon, float gpsAlt) {
     size_t ppi_total_len = PPI_HDRLEN; // Base length of PPI header - 4 bytes
 
     // Add length of the 802.11-Common PPI data header
@@ -307,7 +328,7 @@ size_t calculate_ppi_header_length(float gpsLat, float gpsLon, float gpsAlt) {
     return ppi_total_len;
 }
 
-void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, uint16_t freq, int8_t rssi, int8_t noise, float gpsLat, float gpsLon, float gpsAlt) {
+static void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, uint16_t freq, int8_t rssi, int8_t noise, float gpsLat, float gpsLon, float gpsAlt) {
     struct ppi_hdr pph;
     struct ppi_fieldhdr pfh;
     uint32_t gpsFieldMask = 0;
@@ -357,11 +378,11 @@ void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, uint16_
     // Check if GPS data is available
     if (gpsLat != 0 && gpsLon != 0) {//&& gpsAlt != 0) {
         // Convert GPS data to fixed-point representation
-        fixedLat = floatToFixed37(gpsLat);
-        fixedLon = floatToFixed37(gpsLon);
+        fixedLat = float_to_fixed37(gpsLat);
+        fixedLon = float_to_fixed37(gpsLon);
         gpsFieldMask |= 0b00000110; // Lat/Long fields present
 		if (gpsAlt != 0) {
-			fixedAlt = floatToFixed64(gpsAlt);
+			fixedAlt = float_to_fixed64(gpsAlt);
         	gpsFieldMask |= 0b00001000; // Altitude field present
 		}
         // Prepare and write PPI-GEOLOCATION data fields
@@ -410,7 +431,6 @@ void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, uint16_
     fseek(file, 0, SEEK_END);
 
 }
-
 
 static int * frequencies;
 
@@ -571,25 +591,26 @@ unsigned char targets[MAX_TARGETS][6]; // Array to store MAC addresses
 int num_targets = 0; // Number of MAC addresses stored
 
 // Function to validate a MAC address
-int isValidMACAddress(const char *mac) {
+static int isValidMACAddress(const char *mac) {
     int i = 0, s = 0;
-
     for (i = 0; mac[i] != '\0'; i++) {
         if ((i % 3 == 2 && mac[i] != ':') || (i % 3 != 2 && !isxdigit(mac[i]))) {
             return 0; // Invalid MAC
         }
         if (i % 3 != 2) s++;
     }
-
     return s == 12 && i == 17; // Valid MAC has 12 hex digits and 5 colons
 }
 
 // Function to convert MAC address string to byte array
-int convertMACToBytes(const char *mac_str, uint8_t *mac_bytes) {
+static int convertMACToBytes(const char *mac_str, uint8_t *mac_bytes) {
+	// Ensure the input string is not too long to fit into the local buffer
+    if (strlen(mac_str) > 17) {
+        return -1;
+    }
     if (!isValidMACAddress(mac_str)) {
         return -1; // Invalid MAC address
     }
-
     for (int i = 0; i < 6; i++) {
         unsigned int byte;
         sscanf(mac_str + 3 * i, "%2x", &byte);
@@ -600,14 +621,17 @@ int convertMACToBytes(const char *mac_str, uint8_t *mac_bytes) {
 }
 
 // Function to parse a file for MAC addresses
-int parseMACAddressFile(const char *filename) {
+static int parseMACAddressFile(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) return -1; // File opening failed
 
-    char line[20];
-    while (fgets(line, sizeof(line), file) && num_targets < MAX_TARGETS) {
-        line[strcspn(line, "\n")] = '\0'; // Remove newline character
-        if (convertMACToBytes(line, targets[num_targets]) == 0) {
+    char line[19]; // Buffer size adjusted for MAC address plus newline and null terminator
+    
+    while (fgets(line, sizeof(line), file) != NULL) { // Read until EOF
+        line[strcspn(line, "\r\n")] = '\0'; // Remove both newline and carriage return characters
+
+        // Convert the MAC address and increment the target count if successful
+        if (convertMACToBytes(line, targets[num_targets]) == 0 && num_targets < MAX_TARGETS) {
             num_targets++;
         }
     }
@@ -616,7 +640,7 @@ int parseMACAddressFile(const char *filename) {
     return 0; // Success
 }
 
-int isTargetMAC(uint8_t *mac_address) {
+static int isTargetMAC(uint8_t *mac_address) {
     for (int i = 0; i < num_targets; i++) {
         if (memcmp(mac_address, targets[i], 6) == 0) {
             return 1; // MAC address is in the targets list
@@ -1758,6 +1782,13 @@ static int dump_add_packet(unsigned char * h80211,
 		ap_cur->ac_channel.mhz_160_chan = 0;
 		ap_cur->ac_channel.wave_2 = 0;
 		memset(ap_cur->ac_channel.mcs_index, 0, MAX_AC_MCS_INDEX);
+
+		/* 802.11ax */
+		ap_cur->ax_channel.center_sgmt[0] = 0;
+		ap_cur->ax_channel.center_sgmt[1] = 0;
+		ap_cur->ax_channel.split_chan = 0;
+		ap_cur->ax_channel.mhz_160_chan = 0;
+
 	}
 
 	/* update the last time seen */
@@ -2369,59 +2400,72 @@ skip_probe:
 			// Ext tag
 			if (p[0] == 0xff)
 			{
+				/*IEEE Std 802.11ax-2021
+				  Figure 9-788k—6 GHz Operation Information field format
+				  | Primary Channel | Control | Ch. Center Freq. Seg. 0 | Ch. Center Freq. Seg. 1 | Min. Rate |
+			Octets 			1			 1					1						1					1
+			
+				  Figure 9-788l—Control field format
+				  	B0		B1			B2			B3	B5		B6	B7
+				  | Ch. Width | Duplicate Beacon | Reg. Info | Reserv. |	
+			Bits		2				1				3		  2
+				*/
 				// HE Operation
-				if (p[2] == 0x24) {
+				if (p[2] == 0x24 && p[1] >= 3) 
+				{
 					// Standard is AX
 					strcpy(ap_cur->standard, "ax");
 					
-					if (p[1] >= 3) {
-						// Process 3-byte HE Operations flags field with reverse byte order
-						int he_ops_flags = (p[3] << 16) | (p[4] << 8) | p[5];
-
-						// Check if the 22nd bit (second to last bit) in these flags is set
-						if (he_ops_flags & (1 << 1)) // Second to last bit in 24-bit field
+					// Process 3-byte HE Operations flags field with reverse byte order considering endian-ness
+        			//uint32_t he_ops_flags = letoh32((*(uint32_t *) (p + 3)) & 0x00FFFFFF);
+					uint32_t he_ops_flags = letoh24(p + 3);
+					if (he_ops_flags & 0x20000) // Second to last bit in 24-bit field
+					{
+						// Parse 6GHz operation information (5 bytes)
+						if (p[1] >= 10) // Ensure enough length for 6GHz operation info
 						{
-							// Parse BSS Color Information (1 byte)
-							// int bss_color_info = p[6];
+							// Primary channel number
+							ap_cur->channel = p[9];
+							// Control flags
+							uint8_t control_field = p[10];
 
-							// Parse Basic HE-MCS and NSS Set (2 bytes)
-							// int he_mcs_nss_set = (p[7] << 8) | p[8];
-
-							// Parse 6GHz operation information (5 bytes)
-							if (p[1] >= 10) // Ensure enough length for 6GHz operation info
+							if (p[1] >= 12)
 							{
-								// Primary channel number
-								ap_cur->channel = p[9];
-
-								// Control flags
-								int control_flags = p[10];
-
 								// Channel center frequency segments
 								ap_cur->ax_channel.center_sgmt[0] = p[11];
 								ap_cur->ax_channel.center_sgmt[1] = p[12];
 
-								// After parsing control_flags and center frequency segments
-								if (ap_cur->ax_channel.center_sgmt[1] == 0) {
-									// Check the last two bits for confirmation
-									if (control_flags & (1 << 1)) { // 160 MHz
-										ap_cur->channel_width = CHANNEL_160MHZ;
-										ap_cur->ax_channel.mhz_160_chan = 1;
-										ap_cur->ax_channel.split_chan = 0;
-									} else if (control_flags & 1) { // 80+80 MHz (unlikely in this case)
-										ap_cur->channel_width = CHANNEL_80_80MHZ;
-										ap_cur->ax_channel.mhz_160_chan = 0;
-										ap_cur->ax_channel.split_chan = 1;
-									} else {
-										// Default to 160 MHz if Segment 1 is 0 and no flags are set
-										ap_cur->channel_width = CHANNEL_160MHZ;
-										ap_cur->ax_channel.mhz_160_chan = 1;
-										ap_cur->ax_channel.split_chan = 0;
-									}
-								} else {
-									// If center segment 1 is not 0, likely 80+80 MHz
-									ap_cur->channel_width = CHANNEL_80_80MHZ;
-									ap_cur->ax_channel.split_chan = 1;
-									ap_cur->ax_channel.mhz_160_chan = 0;
+								uint8_t ch_width = (control_field >> 6) & 0x03;
+
+								switch (ch_width) {
+									case 0:
+										// 20 MHz
+										ap_cur->channel_width = CHANNEL_20MHZ;
+										break;
+									case 1:
+										// 40 MHz
+										ap_cur->channel_width = CHANNEL_40MHZ;
+										break;
+									case 2:
+										// 80 MHz
+										ap_cur->channel_width = CHANNEL_80MHZ;
+										break;
+									case 3:
+										// 80+80 MHz or 160 MHz
+										// IEEE Std 802.11ax-2021 - pp.199
+										if ((ap_cur->ax_channel.center_sgmt[1] != 0) && (ap_cur->ax_channel.center_sgmt[1] != ap_cur->ax_channel.center_sgmt[0]))
+										{
+											// 80+80 MHz scenario
+											ap_cur->channel_width = CHANNEL_80_80MHZ;
+											ap_cur->ax_channel.mhz_160_chan = 0;
+											ap_cur->ax_channel.split_chan = 1;
+										} else if (ap_cur->ax_channel.center_sgmt[0] != 0) {
+											// 160 MHz scenario
+											ap_cur->channel_width = CHANNEL_160MHZ;
+											ap_cur->ax_channel.mhz_160_chan = 1;
+											ap_cur->ax_channel.split_chan = 0;
+										}
+										break;
 								}
 							}
 						}
@@ -5699,36 +5743,72 @@ frequency_hopper(struct wif * wi[], int if_num, int chan_count, pid_t parent)
 	exit(0);
 }
 
-void channels_to_freq_string_a(const int *channels, char *freq_string) {
+// takes in an array of channels, checks against the band a freq set, creates string of freqs 
+static void channels_to_freq_string_a(const int *channels, char *freq_string) {
 
     int len = strlen(freq_string);
-    for (int i = 0; channels[i] != 0; ++i) {
+	int available = MAX_FREQS * MAX_FREQ_STR_LEN - len - 1; // Available space, -1 for null terminator
+    for (int i = 0; channels[i] != 0 && available > 0; ++i) {
         for (int j = 0; channel_frequency_map_a[j] != -1; j += 2) {
             if (channels[i] == channel_frequency_map_a[j]) {
-                len += snprintf(freq_string + len, MAX_FREQ_STR_LEN, "%s%d",
-                                len > 0 ? "," : "", channel_frequency_map_a[j + 1]);
-                break;
+                // Calculate space needed for this frequency (including comma if not the first entry)
+                int needed_space = snprintf(NULL, 0, "%s%d", len > 0 ? "," : "", channel_frequency_map_a[j + 1]);
+
+                if (needed_space <= available) {
+                    // Append frequency to string if enough space is available
+                    int written = snprintf(freq_string + len, needed_space + 1, "%s%d",
+                                           len > 0 ? "," : "", channel_frequency_map_a[j + 1]);
+                    len += written;
+                    available -= written;
+                } else {
+                    // Not enough space to append the next frequency
+                    return;
+                }
+                break; // Found and processed the channel, move to the next
             }
         }
     }
 }
 
-void channels_to_freq_string_bg(const int *channels, char *freq_string) {
+//takes in an array of channels, checks against the band bg freq set, creates string of freqs
+static void channels_to_freq_string_bg(const int *channels, char *freq_string) {
 
     int len = strlen(freq_string);
+	int available = MAX_FREQS * MAX_FREQ_STR_LEN - len - 1; // Available space, -1 for null terminator
     for (int i = 0; channels[i] != 0; ++i) {
         for (int j = 0; channel_frequency_map_bg[j] != -1; j += 2) {
             if (channels[i] == channel_frequency_map_bg[j]) {
-                len += snprintf(freq_string + len, MAX_FREQ_STR_LEN, "%s%d",
-                                len > 0 ? "," : "", channel_frequency_map_bg[j + 1]);
-                break;
+                // Calculate space needed for this frequency (including comma if not the first entry)
+                int needed_space = snprintf(NULL, 0, "%s%d", len > 0 ? "," : "", channel_frequency_map_bg[j + 1]);
+
+                if (needed_space <= available) {
+                    // Append frequency to string if enough space is available
+                    int written = snprintf(freq_string + len, needed_space + 1, "%s%d",
+                                           len > 0 ? "," : "", channel_frequency_map_bg[j + 1]);
+                    len += written;
+                    available -= written;
+                } else {
+                    // Not enough space to append the next frequency
+                    return;
+                }
+                break; // Found and processed the channel, move to the next
             }
         }
     }
 }
 
 // Function to map 6 GHz channel number to frequency (in MHz)
-int channel_to_frequency_ax(int channel) {
+static int channel_to_frequency_ax(int channel) {
+	// Fixed first and last channel numbers
+    int first_channel = channel_frequency_map_ax[0];
+	// -4 to get the last channel number before the end marker
+    int last_channel = channel_frequency_map_ax[sizeof(channel_frequency_map_ax) / sizeof(channel_frequency_map_ax[0]) - 4];
+
+    // Check if the channel number is within the valid range
+    if (channel < first_channel || channel > last_channel) {
+        return -1;
+    }
+
     // Iterate over the lookup table to find the frequency
     for (int i = 0; channel_frequency_map_ax[i] != -1; i += 2) {
         if (channel_frequency_map_ax[i] == channel) {
@@ -5739,18 +5819,28 @@ int channel_to_frequency_ax(int channel) {
 }
 
 // Function to convert channel array to frequency string
-void channels_to_freq_string_ax(const int *channels, char *freq_string) {
-    char buffer[MAX_FREQ_STR_LEN];
-    int first = 1;
+static void channels_to_freq_string_ax(const int *channels, char *freq_string) {
+    //char buffer[MAX_FREQ_STR_LEN];
+	int len = strlen(freq_string);
+	int available = MAX_FREQS * MAX_FREQ_STR_LEN - len - 1; // Available space, -1 for null terminator
 
     for (int i = 0; channels[i] != 0; ++i) {
 		
         int freq = channel_to_frequency_ax(channels[i]);
         if (freq > 0) {
-            // Format frequency and append to string
-            snprintf(buffer, sizeof(buffer), first ? "%d" : ",%d", freq);
-            strncat(freq_string, buffer, MAX_FREQ_STR_LEN);
-            first = 0;
+            // Calculate space needed for this frequency (including comma if not the first entry)
+			int needed_space = snprintf(NULL, 0, "%s%d", len > 0 ? "," : "", freq);
+
+			if (needed_space <= available) {
+				// Append frequency to string if enough space is available
+				int written = snprintf(freq_string + len, needed_space + 1, "%s%d",
+										len > 0 ? "," : "", freq);
+				len += written;
+				available -= written;
+			} else {
+				// Not enough space to append the next frequency
+				return;
+			}
         }
     }
 }
@@ -5911,7 +6001,7 @@ static int getfrequencies(const char * optarg)
 
 	// got a NULL pointer?
 	if (optarg == NULL) return -1;
-
+	
 	freq_remain = freq_max;
 
 	// create a writable string
@@ -6495,6 +6585,7 @@ int main(int argc, char * argv[])
 	lopt.ppi = 0;
 	lopt.coordinates[0] = 0;
 	lopt.coordinates[1] = 0;
+
 #ifdef CONFIG_LIBNL
 	lopt.htval = CHANNEL_NO_HT;
 #endif
@@ -6593,7 +6684,7 @@ int main(int argc, char * argv[])
 		option
 			= getopt_long(argc,
 						  argv,
-						  "b:c:egiw:s:t:u:m:d:N:R:aHDB:Ahf:r:EC:o:x:MUI:WK:n:T:Xpzy:",
+						  "b:c:egiw:s:t:u:m:d:N:R:aHDB:Ahf:r:EC:o:x:MUI:WK:n:T:Xpz:y:",
 						  long_options,
 						  &option_index);
 
@@ -6792,18 +6883,18 @@ int main(int argc, char * argv[])
 
 				// Check if 'ax' band is specified
 				if (freq[2] == 1) {
-					char federated_freq_string[MAX_FREQS * MAX_FREQ_STR_LEN] = {0};
 
 					// Accumulate frequencies from specified bands
 					if (freq[0] == 1)
-						channels_to_freq_string_bg(bg_chans, federated_freq_string); // Append bg frequencies
+						channels_to_freq_string_bg(bg_chans, freq_string); // Append bg frequencies
 					if (freq[1] == 1)
-						channels_to_freq_string_a(a_chans, federated_freq_string); // Append a frequencies
-					channels_to_freq_string_ax(ax_chans, federated_freq_string); // Append ax frequencies
+						channels_to_freq_string_a(a_chans, freq_string); // Append a frequencies
+					channels_to_freq_string_ax(ax_chans, freq_string); // Append ax frequencies
 
-					federated_freq_string[sizeof(federated_freq_string) - 1] = '\0';
+					freq_string[sizeof(freq_string) - 1] = '\0';
 
-					lopt.freqstring = federated_freq_string;
+					lopt.freqstring = freq_string;
+					
 					lopt.chanoption = 0; // Reset channel option
 					lopt.freqoption = 1; // Set frequency option
 				} else {
@@ -6818,8 +6909,7 @@ int main(int argc, char * argv[])
 				}
 				break;
 
-			case 'z':
-
+			case 'z':				
 				if (convertMACToBytes(optarg, targets[num_targets]) == 0) {
 					num_targets++;
 				} else if (parseMACAddressFile(optarg) != 0) {
