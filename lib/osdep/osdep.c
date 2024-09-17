@@ -77,6 +77,12 @@ EXPORT int wi_set_freq(struct wif * wi, int freq)
 	return wi->wi_set_freq(wi, freq);
 }
 
+EXPORT int wi_set_freq_ax(struct wif *wi, int freq, int bandwidth, int c_seg0, int c_seg1)
+{
+    assert(wi->wi_set_freq_ax); // Make sure the function pointer is defined
+    return wi->wi_set_freq_ax(wi, freq, bandwidth, c_seg0, c_seg1);
+}
+
 EXPORT int wi_get_freq(struct wif * wi)
 {
 	assert(wi->wi_get_freq);

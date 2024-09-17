@@ -123,6 +123,7 @@ struct priv_linux
 	char * wlanctlng; /* XXX never set */
 	char * iwpriv;
 	char * iwconfig;
+	char * iw;
 	char * ifconfig;
 	char * wl;
 	char * main_if;
@@ -200,9 +201,11 @@ static char * searchInside(const char * dir, const char * filename)
 	DIR * dp;
 	struct dirent * ep;
 
+	//printf("Searching in directory: %s\n", dir);  // Debug: Print directory being searched
 	dp = opendir(dir);
 	if (dp == NULL)
 	{
+		perror("Error opening directory");  // Print error if directory can't be opened
 		return NULL;
 	}
 
@@ -212,6 +215,7 @@ static char * searchInside(const char * dir, const char * filename)
 	if (curfile == NULL)
 	{
 		(void) closedir(dp);
+		perror("Error allocating memory for curfile");  // Print error if memory allocation fails
 		return (NULL);
 	}
 
@@ -225,6 +229,7 @@ static char * searchInside(const char * dir, const char * filename)
 		if ((int) strlen(ep->d_name) == len && !strcmp(ep->d_name, filename))
 		{
 			(void) closedir(dp);
+			//printf("File found: %s\n", curfile);  // Debug: Print when the file is found
 			return curfile;
 		}
 
@@ -235,6 +240,7 @@ static char * searchInside(const char * dir, const char * filename)
 			// Check if the directory isn't "." or ".."
 			if (strcmp(".", ep->d_name) && strcmp("..", ep->d_name))
 			{
+				//printf("Entering directory: %s\n", curfile);  // Debug: Print when entering a new directory
 				// Recursive call
 				ret = searchInside(curfile, filename);
 				if (ret != NULL)
@@ -246,6 +252,7 @@ static char * searchInside(const char * dir, const char * filename)
 			}
 		}
 	}
+	//printf("File %s not found in directory: %s\n", filename, dir);  // Debug: Print when the file is not found
 	(void) closedir(dp);
 	free(curfile);
 	return NULL;
@@ -264,14 +271,18 @@ static char * wiToolsPath(const char * tool)
 								   "/usr/local/bin",
 								   "/tmp"};
 
+	//printf("Searching for tool: %s\n", tool);  // Debug: Print tool being searched
+
 	// Also search in other known location just in case we haven't found it yet
 	nbelems = sizeof(paths) / sizeof(char *);
 	for (i = 0; i < nbelems; i++)
 	{
+		//printf("Checking in path: %s\n", paths[i]);  // Debug: Print each directory being checked
 		path = searchInside(paths[i], tool);
 		if (path != NULL) return path;
 	}
 
+	//printf("Tool %s not found in predefined paths.\n", tool);  // Debug: Print if the tool was not found
 	return NULL;
 }
 
@@ -1265,6 +1276,101 @@ static int linux_set_freq(struct wif * wi, int freq)
 	return (0);
 }
 
+static int linux_set_freq_ax(struct wif *wi, int freq, int bandwidth, int c_seg0, int c_seg1) {
+    struct priv_linux *dev = wi_priv(wi);
+    char s[128];
+    int pid, status;
+	struct iwreq wrq;
+
+    //memset(s, 0, sizeof(s));
+	char freq_str[16], cseg0_str[16], cseg1_str[16];
+
+    // Convert integers to strings
+    snprintf(freq_str, sizeof(freq_str), "%d", freq);
+    snprintf(cseg0_str, sizeof(cseg0_str), "%d", c_seg0);
+    snprintf(cseg1_str, sizeof(cseg1_str), "%d", c_seg1);
+
+    // Set up iw command based on bandwidth
+    if (bandwidth == 0) { // 20 MHz - default value of lopt.ax_bw
+        // For 20 MHz channel
+        snprintf(s, sizeof(s), "iw %s set freq %d", wi_get_ifname(wi), freq);
+    } else if (bandwidth == CHANNEL_AX40) {
+        // For 40 MHz channel
+        snprintf(s, sizeof(s), "iw %s set freq %d 40 %d", wi_get_ifname(wi), freq, c_seg0);
+    } else if (bandwidth == CHANNEL_AX80) {
+        // For 80 MHz channel
+        snprintf(s, sizeof(s), "iw %s set freq %d 80 %d", wi_get_ifname(wi), freq, c_seg0);
+    } else if (bandwidth == CHANNEL_AX80_80) {
+        // For 160 MHz channel
+        snprintf(s, sizeof(s), "iw %s set freq %d 80+80 %d %d", wi_get_ifname(wi), freq, c_seg0, c_seg1);
+    } else if (bandwidth == CHANNEL_AX160) {
+        // For 160 MHz channel
+        snprintf(s, sizeof(s), "iw %s set freq %d 160 %d", wi_get_ifname(wi), freq, c_seg0);
+    }
+
+	//printf("dev->iw: %s\n", dev->iw);
+    //sleep(3);  // Sleep for 10 seconds
+
+    // Fork to run the iw command
+    if ((pid = fork()) == 0) {
+        close(0);
+        close(1);
+        close(2);
+        IGNORE_NZ(chdir("/"));
+        //execlp("sh", "sh", "-c", s, (char *) NULL);
+		//execlp(dev->iw, s, NULL);  // Execute the built command
+		// Choose the correct command arguments based on bandwidth
+        if (bandwidth == 0) {  // 20 MHz
+            execlp(dev->iw, "iw", "dev", wi_get_ifname(wi), "set", "freq", freq_str, (char *) NULL);
+        } else if (bandwidth == CHANNEL_AX40) {  // 40 MHz
+            execlp(dev->iw, "iw", "dev", wi_get_ifname(wi), "set", "freq", freq_str, "40", cseg0_str, (char *) NULL);
+        } else if (bandwidth == CHANNEL_AX80) {  // 80 MHz
+            execlp(dev->iw, "iw", "dev", wi_get_ifname(wi), "set", "freq", freq_str, "80", cseg0_str, (char *) NULL);
+        } else if (bandwidth == CHANNEL_AX80_80) {  // 80+80 MHz
+            execlp(dev->iw, "iw", "dev", wi_get_ifname(wi), "set", "freq", freq_str, "80+80", cseg0_str, cseg1_str, (char *) NULL);
+        } else if (bandwidth == CHANNEL_AX160) {  // 160 MHz
+            execlp(dev->iw, "iw", "dev", wi_get_ifname(wi), "set", "freq", freq_str, "160", cseg0_str, (char *) NULL);
+        }
+		perror("execlp failed");
+        exit(1);
+    }
+
+    // Wait for the child process to complete
+    if (waitpid(pid, &status, 0) == -1) {
+        perror("waitpid failed");
+        return -1;
+    }
+
+    // Check if the iw command executed successfully
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+        dev->freq = freq;  // Set frequency if the iw command was successful
+        return 0;
+    }
+
+    // If iw command fails, fallback to ioctl using SIOCSIWFREQ (Wireless Extensions)
+    //printf("iw command failed, falling back to ioctl\n");
+
+    // Set up the ioctl request to set the frequency
+    memset(&wrq, 0, sizeof(struct iwreq));
+    strncpy(wrq.ifr_name, wi_get_ifname(wi), IFNAMSIZ);
+    wrq.ifr_name[IFNAMSIZ - 1] = 0;
+
+    wrq.u.freq.m = (double) freq * 100000;  // Set frequency multiplier
+    wrq.u.freq.e = (double) 1;  // Exponent part of the frequency
+
+    // Try setting the frequency using ioctl
+    if (ioctl(dev->fd_in, SIOCSIWFREQ, &wrq) < 0) {
+        usleep(10000);  // Wait a bit and retry (for compatibility with some drivers)
+        if (ioctl(dev->fd_in, SIOCSIWFREQ, &wrq) < 0) {
+            perror("ioctl(SIOCSIWFREQ) failed");
+            return 1;
+        }
+    }
+
+    dev->freq = freq;  // Set the device frequency after successful ioctl call
+    return 0;
+}
+
 static int opensysfs(struct priv_linux * dev, char * iface, int fd)
 {
 	int fd2;
@@ -1826,6 +1932,10 @@ static int do_linux_open(struct wif * wi, char * iface)
 		return (1);
 	}
 
+#ifdef CONFIG_LIBNL
+	dev->iw = wiToolsPath("iw");
+#endif
+
 #ifndef CONFIG_LIBNL
 	dev->iwpriv = wiToolsPath("iwpriv");
 	dev->iwconfig = wiToolsPath("iwconfig");
@@ -2244,6 +2354,8 @@ static void do_free(struct wif * wi)
 
 	if (pl->iwconfig) free(pl->iwconfig);
 
+	if (pl->iw) free(pl->iw);
+
 	if (pl->ifconfig) free(pl->ifconfig);
 
 	if (pl->wl) free(pl->wl);
@@ -2405,6 +2517,7 @@ static struct wif * linux_open(char * iface)
 #endif // CONFIG_LIBNL
 	wi->wi_get_channel = linux_get_channel;
 	wi->wi_set_freq = linux_set_freq;
+	wi->wi_set_freq_ax = linux_set_freq_ax;
 	wi->wi_get_freq = linux_get_freq;
 #ifdef CONFIG_LIBNL
 	wi->wi_close = linux_close_nl80211;

@@ -583,6 +583,11 @@ static struct local_options
 	int ppi;
 	double coordinates[2];
 	int target;
+
+	int ax_bw;
+	int c_seg0;
+	int c_seg1;
+
 } lopt;
 
 /* targeting globals*/
@@ -1173,6 +1178,12 @@ static const char usage[] =
 	"      --ht20                : Set channel to HT20 (802.11n)\n"
 	"      --ht40-               : Set channel to HT40- (802.11n)\n"
 	"      --ht40+               : Set channel to HT40+ (802.11n)\n"
+	"      --ax40                : Set channel to 40 MHz bandwidth (802.11ax)\n"
+	"      --ax80                : Set channel to 80 MHz bandwidth (802.11ax)\n"
+	"      --ax80+               : Set channel to 80+80 MHz bandwidth (802.11ax)\n"
+	"      --ax160               : Set channel to 160 MHz bandwidth (802.11ax)\n"
+	"      --cseg0        <freq> : Center Segement 0 - for 40, 80, and 160 MHz secondary frequencies (802.11ax)\n"
+	"      --cseg1        <freq> : Center Segement 1 - for 80+80 MHz secondary frequency (802.11ax)\n"
 	"      -X / --80211ax        : Capture on 802.11ax 6E channels. Must use -c with 6E channel number\n"
 	"      -c / --channel <chs>  : Capture on specific channels\n"
 	"      -b / --band   <abgx>  : Band on which airodump-ng should hop\n"
@@ -6493,6 +6504,12 @@ int main(int argc, char * argv[])
 		   {"ppi", 0, 0, 'p'},
 		   {"coords", 1, 0, 'y'},
 		   {"target", 1, 0, 'z'},
+		   {"ax40", 0, 0, '4'},
+		   {"ax80", 0, 0, '8'},
+		   {"ax80+", 0, 0, '9'},
+		   {"ax160", 0, 0, '6'},
+		   {"cseg0", 1, 0, '0'},
+		   {"cseg1", 1, 0, '1'},
 		   {0, 0, 0, 0}};
 
 	pid_t main_pid = getpid();
@@ -6585,6 +6602,9 @@ int main(int argc, char * argv[])
 	lopt.ppi = 0;
 	lopt.coordinates[0] = 0;
 	lopt.coordinates[1] = 0;
+	lopt.ax_bw = 0; // can be 4 (40MHz), 8 (80MHz), 9 (80+80), 6 (160MHz)
+	lopt.c_seg0 = 0;
+	lopt.c_seg1 = 0;
 
 #ifdef CONFIG_LIBNL
 	lopt.htval = CHANNEL_NO_HT;
@@ -7262,7 +7282,22 @@ int main(int argc, char * argv[])
 
 				if (lopt.active_scan_sim <= 0) lopt.active_scan_sim = 0;
 				break;
-
+			case '0':
+#ifndef CONFIG_LIBNL
+				printf("AX Center Segment 0 unsupported\n");
+				return (EXIT_FAILURE);
+#else
+				lopt.c_seg0 = strtoul(optarg, NULL, 10);
+#endif
+				break;
+			case '1':
+#ifndef CONFIG_LIBNL
+				printf("AX Center Segment 1 unsupported\n");
+				return (EXIT_FAILURE);
+#else
+				lopt.c_seg1 = strtoul(optarg, NULL, 10);
+#endif
+				break;
 			case '2':
 #ifndef CONFIG_LIBNL
 				printf("HT Channel unsupported\n");
@@ -7287,7 +7322,38 @@ int main(int argc, char * argv[])
 				lopt.htval = CHANNEL_HT40_PLUS;
 #endif
 				break;
-
+			case '4':
+#ifndef CONFIG_LIBNL
+				printf("AX 40 MHz Bandwidth unsupported\n");
+				return (EXIT_FAILURE);
+#else
+				lopt.ax_bw = CHANNEL_AX40;
+#endif
+				break;
+			case '8':
+#ifndef CONFIG_LIBNL
+				printf("AX 80 MHz Bandwidth unsupported\n");
+				return (EXIT_FAILURE);
+#else
+				lopt.ax_bw = CHANNEL_AX80;
+#endif
+				break;
+			case '9':
+#ifndef CONFIG_LIBNL
+				printf("AX 80+80 MHz Bandwidth unsupported\n");
+				return (EXIT_FAILURE);
+#else
+				lopt.ax_bw = CHANNEL_AX80_80;
+#endif
+				break;
+			case '6':
+#ifndef CONFIG_LIBNL
+				printf("AX 160 MHz Bandwidth unsupported\n");
+				return (EXIT_FAILURE);
+#else
+				lopt.ax_bw = CHANNEL_AX160;
+#endif
+				break;
 			default:
 				airodump_usage();
 				return (EXIT_FAILURE);
@@ -7406,7 +7472,15 @@ int main(int argc, char * argv[])
 			{
 				for (i = 0; i < lopt.num_cards; i++)
 				{
+#ifdef CONFIG_LIBNL
+					int result;
+					result = wi_set_freq_ax(wi[i], lopt.frequency[0], lopt.ax_bw, lopt.c_seg0, lopt.c_seg1);
+					if (result != 0) {
+						exit(EXIT_FAILURE);
+					}
+#else
 					wi_set_freq(wi[i], lopt.frequency[0]);
+#endif
 					lopt.frequency[i] = lopt.frequency[0];
 				}
 				lopt.singlefreq = 1;

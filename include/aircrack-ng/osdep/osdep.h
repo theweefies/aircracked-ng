@@ -102,6 +102,7 @@ struct wif
 	int (*wi_set_channel)(struct wif * wi, int chan);
 	int (*wi_get_channel)(struct wif * wi);
 	int (*wi_set_freq)(struct wif * wi, int freq);
+	int (*wi_set_freq_ax)(struct wif * wi, int freq, int bandwidth, int c_seq0, int c_seg1);
 	int (*wi_get_freq)(struct wif * wi);
 	void (*wi_close)(struct wif * wi);
 	int (*wi_fd)(struct wif * wi);
@@ -135,6 +136,7 @@ IMPORT int wi_set_channel(struct wif * wi, int chan);
 IMPORT int wi_set_ht_channel(struct wif * wi, int chan, unsigned int htval);
 IMPORT int wi_get_channel(struct wif * wi);
 IMPORT int wi_set_freq(struct wif * wi, int freq);
+IMPORT int wi_set_freq_ax(struct wif * wi, int freq, int bandwidth, int c_seq0, int c_seg1);
 IMPORT int wi_get_freq(struct wif * wi);
 IMPORT void wi_close(struct wif * wi);
 IMPORT char * wi_get_ifname(struct wif * wi);
