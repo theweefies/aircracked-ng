@@ -350,7 +350,7 @@ static void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, 
 
     // Prepare and write the 802.11-Common PPI data header
     pfh.pfh_type = htole16(PPI_80211_COMMON);
-    pfh.pfh_datalen = htole16(20);
+    pfh.pfh_datalen = 20;
     fwrite(&pfh, 1, PPI_FIELD_HDRLEN, file);
 
 	uint64_t le_tsfTimer = htole64(tsfTimer);
@@ -425,7 +425,7 @@ static void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, 
 		}
 
         // Update total length to include PPI-GEOLOCATION data
-        ppi_total_len += PPI_FIELD_HDRLEN + pfh.pfh_datalen;
+        ppi_total_len += PPI_FIELD_HDRLEN + letoh16(pfh.pfh_datalen);
     }
 
     // Update the PPI header length
