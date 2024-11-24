@@ -7573,7 +7573,7 @@ int main(int argc, char * argv[])
 	// we need to specify the gpsd option when running the ppi option
 	if (!(opt.usegpsd) && lopt.ppi) {
 		// but only if we don't specify fixed coordinates
-		if ((lopt.coordinates[0] == 0 && lopt.coordinates[1] == 0)) {
+		if ((lopt.coordinates[0] == 500 && lopt.coordinates[1] == 500)) {
 			printf("--gpsd option must be used with ppi creation option, unless specifying fixed coords. Ignoring this flag.\n");
 			sleep(1);
 			lopt.ppi = 0;
