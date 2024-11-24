@@ -342,8 +342,8 @@ static void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, 
     // Initialize PPI header
     pph.pph_version = 0;
     pph.pph_flags = 0;
-    pph.pph_len = htole16(PPI_HDRLEN);  // Will be updated later
-    pph.pph_dlt = 105;  // Example DLT value for 802.11
+    pph.pph_len = PPI_HDRLEN;  // Will be updated later
+    pph.pph_dlt = htole32(105);  // Example DLT value for 802.11
 
     // Write initial PPI header to file
     fwrite(&pph, 1, PPI_HDRLEN, file);
@@ -352,23 +352,26 @@ static void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, 
     pfh.pfh_type = htole16(PPI_80211_COMMON);
     pfh.pfh_datalen = htole16(20);
     fwrite(&pfh, 1, PPI_FIELD_HDRLEN, file);
-     // Write TSF Timer
-    uint64_t le_tsfTimer = htole64(tsfTimer);
+
+	uint64_t le_tsfTimer = htole64(tsfTimer);
     fwrite(&le_tsfTimer, 1, sizeof(le_tsfTimer), file); // TSF Timer
 	// Flags (2 bytes, zeroed)
 	uint16_t flags = 0;
 	fwrite(&flags, 1, sizeof(flags), file);
-    uint16_t le_dataRate = htole16(dataRate);
+
+	uint16_t le_dataRate = htole16(dataRate);
     fwrite(&le_dataRate, 1, sizeof(le_dataRate), file); // Data Rate
-    uint16_t le_freq = htole16(freq);
+
+	uint16_t le_freq = htole16(freq);
     fwrite(&le_freq, 1, sizeof(le_freq), file);         // Frequency
+
 	// Channel Flags (2 bytes, zeroed)
-	uint16_t channelFlags = 0;  // Zeroed channel flags
-    fwrite(&channelFlags, 1, sizeof(channelFlags), file);
+	uint16_t channelFlags = 0;
+	fwrite(&channelFlags, 1, sizeof(channelFlags), file);
 
 	// FHSS Hopset (1 byte, zeroed)
-	uint8_t fhssHopset = 0;  // Zeroed FHSS hopset
-    fwrite(&fhssHopset, 1, sizeof(fhssHopset), file);
+	uint8_t fhssHopset = 0;
+	fwrite(&fhssHopset, 1, sizeof(fhssHopset), file);
 
 	// FHSS Pattern (1 byte, zeroed)
 	uint8_t fhssPattern = 0;
@@ -377,7 +380,7 @@ static void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, 
     fwrite(&noise, 1, sizeof(noise), file);       // Noise
 
     // Update total length to include 802.11-Common header
-    ppi_total_len += PPI_FIELD_HDRLEN + le16toh(pfh.pfh_datalen);
+    ppi_total_len += PPI_FIELD_HDRLEN + pfh.pfh_datalen;
 
     // Check if GPS data is available
     if (gpsLat != 0 && gpsLon != 0) {//&& gpsAlt != 0) {
@@ -391,7 +394,7 @@ static void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, 
 		}
         // Prepare and write PPI-GEOLOCATION data fields
 		// prepare the geo field header - 4 bytes (PPI Vendor tag + length[geotag header + gps data])
-        pfh.pfh_type = htole16(PPI_GEOTAG);//(uint16_t)(PPI_GEOTAG);
+        pfh.pfh_type = htole16((uint16_t)(PPI_GEOTAG));
 		geoFhLen = 8 + sizeof(fixedLat) + sizeof(fixedLon); 
 		if (gpsAlt != 0) {
 			geoFhLen += sizeof(fixedAlt);
@@ -399,25 +402,30 @@ static void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, 
 		pfh.pfh_datalen = htole16(geoFhLen);
         fwrite(&pfh, 1, PPI_FIELD_HDRLEN, file);
 		
-		uint16_t le_geoTagHeaderLen = htole16(geoFhLen);
-        uint32_t le_gpsFieldMask = htole32(gpsFieldMask);
-
-        fwrite(&geoTagRev, 1, sizeof(geoTagRev), file);
-        fwrite(&geoTagPad, 1, sizeof(geoTagPad), file);
-        fwrite(&le_geoTagHeaderLen, 1, sizeof(le_geoTagHeaderLen), file);
+		// prepare the geotag header - 8 bytes (rev, pad, len, field mask)
+		fwrite(&geoTagRev, 1, sizeof(geoTagRev), file);
+		fwrite(&geoTagPad, 1, sizeof(geoTagPad), file);
+		geoTagHeaderLen = 8 + sizeof(fixedLat) + sizeof(fixedLon);
+		if (gpsAlt != 0) {
+			geoTagHeaderLen += sizeof(fixedAlt);
+		}
+		uint16_t le_geoTagHeaderLen = htole16(geoTagHeaderLen);
+		fwrite(&le_geoTagHeaderLen, 1, sizeof(le_geoTagHeaderLen), file);
+		uint32_t le_gpsFieldMask = htole32(gpsFieldMask);
         fwrite(&le_gpsFieldMask, 1, sizeof(le_gpsFieldMask), file);
 
+		//write the gps data itself - 4 bytes lat, 4 bytes lon, 4 bytes alt
 		uint32_t le_fixedLat = htole32(fixedLat);
-        uint32_t le_fixedLon = htole32(fixedLon);
         fwrite(&le_fixedLat, 1, sizeof(le_fixedLat), file);
+		uint32_t le_fixedLon = htole32(fixedLon);
         fwrite(&le_fixedLon, 1, sizeof(le_fixedLon), file);
+		if (gpsAlt != 0) {
+			uint32_t le_fixedAlt = fixedAlt;
+			fwrite(&le_fixedAlt, 1, sizeof(le_fixedAlt), file);
+		}
 
-        if (gpsAlt != 0) {
-            uint32_t le_fixedAlt = htole32(fixedAlt);
-            fwrite(&le_fixedAlt, 1, sizeof(le_fixedAlt), file);
-        }
-
-        ppi_total_len += PPI_FIELD_HDRLEN + le16toh(pfh.pfh_datalen);
+        // Update total length to include PPI-GEOLOCATION data
+        ppi_total_len += PPI_FIELD_HDRLEN + pfh.pfh_datalen;
     }
 
     // Update the PPI header length
