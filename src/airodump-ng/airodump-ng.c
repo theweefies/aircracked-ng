@@ -350,7 +350,7 @@ static void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, 
 
     // Prepare and write the 802.11-Common PPI data header
     pfh.pfh_type = htole16(PPI_80211_COMMON);
-    pfh.pfh_datalen = 20;
+    pfh.pfh_datalen = htole16(20);
     fwrite(&pfh, 1, PPI_FIELD_HDRLEN, file);
 
 	uint64_t le_tsfTimer = htole64(tsfTimer);
@@ -380,7 +380,7 @@ static void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, 
     fwrite(&noise, 1, sizeof(noise), file);       // Noise
 
     // Update total length to include 802.11-Common header
-    ppi_total_len += PPI_FIELD_HDRLEN + pfh.pfh_datalen;
+    ppi_total_len += PPI_FIELD_HDRLEN + letoh16(pfh.pfh_datalen);
 
     // Check if GPS data is available
     if (gpsLat != 0 && gpsLon != 0) {//&& gpsAlt != 0) {
