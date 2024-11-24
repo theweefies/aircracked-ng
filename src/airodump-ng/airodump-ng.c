@@ -7896,7 +7896,9 @@ int main(int argc, char * argv[])
 				/* go through the radiotap arguments we have been given
 				 * by the driver
 				 */
-
+				// Initialize TSFT to zero since we may use it later.
+				ri.ri_mactime = 0;
+				
 				while (ieee80211_radiotap_iterator_next(&iterator) >= 0)
 				{
 					switch (iterator.this_arg_index)
