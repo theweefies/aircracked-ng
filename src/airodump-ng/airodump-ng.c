@@ -398,14 +398,14 @@ static void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, 
     offset += sizeof(noise);
 
     // **3. Optionally Add GPS Data**
-    if (gpsLat != 0 && gpsLon != 0) {
+    if (gpsLat != 500 && gpsLon != 500) {
         uint32_t gpsFieldMask = 0;
         uint32_t fixedLat = float_to_fixed37(gpsLat);
         uint32_t fixedLon = float_to_fixed37(gpsLon);
         gpsFieldMask |= 0b00000110; // Lat/Long fields present
 
         uint32_t fixedAlt = 0;
-        if (gpsAlt != 0) {
+        if (gpsAlt != 500) {
             fixedAlt = float_to_fixed64(gpsAlt);
             gpsFieldMask |= 0b00001000; // Altitude field present
         }
