@@ -48,10 +48,8 @@ m4_define([version_scm],[m4_translit(m4_esyscmd([$(pwd)/evalrev . scm || echo]),
 m4_define([version_triplet],version_major.version_minor.version_micro)
 m4_append([version_triplet],version_scm)
 
-AC_PREREQ([2.52])
-AC_INIT([aircrack-ng],
-    [version_triplet],
-    [https://forum.aircrack-ng.org])
+AC_PREREQ([2.71])
+AC_INIT([aircrack-ng],[version_triplet],[https://forum.aircrack-ng.org])
 
 #
 # Cross-Compilation
@@ -97,7 +95,15 @@ AM_PROG_AS
 PKG_PROG_PKG_CONFIG
 AM_PROG_CC_C_O
 AC_C_CONST
-AC_HEADER_STDC
+m4_warn([obsolete],
+[The preprocessor macro `STDC_HEADERS' is obsolete.
+  Except in unusual embedded environments, you can safely include all
+  ISO C90 headers unconditionally.])dnl
+# Autoupdate added the next two lines to ensure that your configure
+# script's behavior did not change.  They are probably safe to remove.
+AC_CHECK_INCLUDES_DEFAULT
+AC_PROG_EGREP
+
 AC_CHECK_HEADERS([locale.h stdio.h stdarg.h fcntl.h malloc.h stdlib.h string.h strings.h unistd.h sys/stat.h getopt.h sys/time.h sys/types.h dirent.h])
 
 #

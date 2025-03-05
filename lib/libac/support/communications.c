@@ -42,6 +42,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
+#include <sys/socket.h>  // For send()
+
 #include "aircrack-ng/defs.h"
 #include "aircrack-ng/support/communications.h"
 #include "aircrack-ng/crypto/crypto.h"
@@ -956,7 +958,7 @@ static const char * f_ext[] = {AIRODUMP_NG_CSV_EXT,
 							   AIRODUMP_NG_LOG_CSV_EXT};
 
 /* setup the output files */
-int dump_initialize_multi_format(char * prefix, int ivs_only, int ppi)
+int dump_initialize_multi_format(char * prefix, int ivs_only, int ppi, int *tcp_sock_fd)
 {
 	REQUIRE(prefix != NULL);
 	REQUIRE(*prefix != '\0');
@@ -1141,6 +1143,22 @@ int dump_initialize_multi_format(char * prefix, int ivs_only, int ppi)
 		} else {
 			pfh.linktype = LINKTYPE_IEEE802_11;
 		}
+
+		if (tcp_sock_fd != NULL) {
+			if (*tcp_sock_fd > 0) {
+				int n = send(*tcp_sock_fd, &pfh, sizeof(pfh), 0);
+				if (n <= 0) {  // Client disconnected
+					if (n == 0) {
+						printf("\nClient disconnected gracefully.\n");
+					} else {
+						perror("\nSend failed, client may have disconnected");
+					}
+					close(*tcp_sock_fd);  // Close the socket
+					*tcp_sock_fd = -1;    // Mark socket as invalid
+				}
+			}
+		}
+
 		if (fwrite(&pfh, 1, sizeof(pfh), opt.f_cap) != (size_t) sizeof(pfh))
 		{
 			perror("fwrite(pcap file header) failed");
@@ -1204,7 +1222,7 @@ int dump_initialize(char * prefix)
 {
 	opt.output_format_pcap = 1;
 
-	return dump_initialize_multi_format(prefix, 0, 0);
+	return dump_initialize_multi_format(prefix, 0, 0, NULL);
 }
 
 int check_shared_key(const uint8_t * h80211, size_t caplen)

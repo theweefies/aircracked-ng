@@ -32,6 +32,10 @@ sudo ldconfig
 This version of the aircrack suite contains changes to aireplay-ng, airodump-ng:
 
 airodump-ng:
+
+- UPDATE 2025-03-05:
+    - STREAM PACKETS OVER TCP: -V / --tcp-server option to set up a bind tcp connection;
+    client can connect over tcp to listen address to receive file header and subsequent packets. Pass -V <ipv4>:<port> or -V <ipv4>,<port>. 
 - NEW FEATURES 
     - ppi/radiotap creation:   Pass the -p/--ppi option with --gpsd (or not if using --coords) to create radiotap/ppi geo headers. Currently, the TSF Timer, frequency, RSSI, noise, and rate are being pulled from ri structure for radiotap data. Some of these may need to be modified or adjusted (specifically the rate) due to my misconceptions or misunderstanding of the existing code. The GPS information used for geotagging is the lat, lon, and altitude. May add speed as well.
     - 802.11ax/6E support:     Pass the -X/--80211ax option to use standard 6E primary channel numbers with the -c option. Also added 'x' character to accepted bands with use of the --band option. Supports use of other bands, a, b, g by using freq mappings for other bands and using frequency scanning mode.

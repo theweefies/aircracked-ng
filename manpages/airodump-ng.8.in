@@ -102,7 +102,10 @@ Override automatic background detection. Use "0" to force foreground settings an
 Removes the message that says \(aqfixed channel <interface>: -1\(aq.
 .TP
 .I -z, --target <MAC address or file name>
-Enter a target MAC address or a file path/name of new-line separated, colon-delimited MAC addresses to highlight matches in red. 
+Enter a target MAC address or a file path/name of new-line separated, colon-delimited MAC addresses to highlight matches in red.
+.TP
+.I -V, --tcp-server <ip:port>  OR <ip,port>
+Enter an IPv4 listen address and a valid port number. Address must be assigned to an interface. Must also be used with -w / --write.
 .PP
 .B Filter options:
 .TP

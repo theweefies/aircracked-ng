@@ -328,6 +328,101 @@ static size_t calculate_ppi_header_length(float gpsLat, float gpsLon, float gpsA
     return ppi_total_len;
 }
 
+static void write_ppi_headers_to_buffer(uint8_t *buffer, 
+                              uint64_t tsfTimer, uint16_t dataRate, 
+                              uint16_t freq, int8_t rssi, int8_t noise, 
+                              float gpsLat, float gpsLon, float gpsAlt) {
+    struct ppi_hdr pph;
+    struct ppi_fieldhdr pfh;
+    uint32_t gpsFieldMask = 0;
+    uint32_t fixedLat, fixedLon, fixedAlt;
+    uint16_t geoFhLen;
+    uint8_t geoTagRev = 2;
+    uint8_t geoTagPad = 0;
+    uint16_t geoTagHeaderLen;
+    size_t offset = 0;
+
+    // Initialize PPI header
+    pph.pph_version = 0;
+    pph.pph_flags = 0;
+    pph.pph_len = PPI_HDRLEN;  // Will be updated later
+    pph.pph_dlt = 105;  // Example DLT value for 802.11
+
+    // Write PPI header
+    memcpy(buffer + offset, &pph, PPI_HDRLEN);
+    offset += PPI_HDRLEN;
+
+    // Prepare 802.11-Common PPI field header
+    pfh.pfh_type = PPI_80211_COMMON;
+    pfh.pfh_datalen = 20;
+    memcpy(buffer + offset, &pfh, PPI_FIELD_HDRLEN);
+    offset += PPI_FIELD_HDRLEN;
+
+    // Write 802.11-Common data fields
+    memcpy(buffer + offset, &tsfTimer, sizeof(tsfTimer));
+    offset += sizeof(tsfTimer);
+    uint16_t flags = 0;
+    memcpy(buffer + offset, &flags, sizeof(flags));
+    offset += sizeof(flags);
+    memcpy(buffer + offset, &dataRate, sizeof(dataRate));
+    offset += sizeof(dataRate);
+    memcpy(buffer + offset, &freq, sizeof(freq));
+    offset += sizeof(freq);
+    uint16_t channelFlags = 0;
+    memcpy(buffer + offset, &channelFlags, sizeof(channelFlags));
+    offset += sizeof(channelFlags);
+    uint8_t fhssHopset = 0, fhssPattern = 0;
+    memcpy(buffer + offset, &fhssHopset, sizeof(fhssHopset));
+    offset += sizeof(fhssHopset);
+    memcpy(buffer + offset, &fhssPattern, sizeof(fhssPattern));
+    offset += sizeof(fhssPattern);
+    memcpy(buffer + offset, &rssi, sizeof(rssi));
+    offset += sizeof(rssi);
+    memcpy(buffer + offset, &noise, sizeof(noise));
+    offset += sizeof(noise);
+
+    // If GPS data is available, write Geolocation field
+    if (gpsLat != 0 && gpsLon != 0) {
+        fixedLat = float_to_fixed37(gpsLat);
+        fixedLon = float_to_fixed37(gpsLon);
+        gpsFieldMask |= 0b00000110; // Lat/Long fields present
+        if (gpsAlt != 0) {
+            fixedAlt = float_to_fixed64(gpsAlt);
+            gpsFieldMask |= 0b00001000; // Altitude field present
+        }
+
+        pfh.pfh_type = PPI_GEOTAG;
+        geoFhLen = 8 + sizeof(fixedLat) + sizeof(fixedLon);
+        if (gpsAlt != 0) geoFhLen += sizeof(fixedAlt);
+        pfh.pfh_datalen = geoFhLen;
+
+        memcpy(buffer + offset, &pfh, PPI_FIELD_HDRLEN);
+        offset += PPI_FIELD_HDRLEN;
+        memcpy(buffer + offset, &geoTagRev, sizeof(geoTagRev));
+        offset += sizeof(geoTagRev);
+        memcpy(buffer + offset, &geoTagPad, sizeof(geoTagPad));
+        offset += sizeof(geoTagPad);
+        geoTagHeaderLen = 8 + sizeof(fixedLat) + sizeof(fixedLon);
+        if (gpsAlt != 0) geoTagHeaderLen += sizeof(fixedAlt);
+        memcpy(buffer + offset, &geoTagHeaderLen, sizeof(geoTagHeaderLen));
+        offset += sizeof(geoTagHeaderLen);
+        memcpy(buffer + offset, &gpsFieldMask, sizeof(gpsFieldMask));
+        offset += sizeof(gpsFieldMask);
+        memcpy(buffer + offset, &fixedLat, sizeof(fixedLat));
+        offset += sizeof(fixedLat);
+        memcpy(buffer + offset, &fixedLon, sizeof(fixedLon));
+        offset += sizeof(fixedLon);
+        if (gpsAlt != 0) {
+            memcpy(buffer + offset, &fixedAlt, sizeof(fixedAlt));
+            offset += sizeof(fixedAlt);
+        }
+    }
+
+    // Update total length in PPI header
+    ((struct ppi_hdr *)buffer)->pph_len = (uint16_t)offset;
+}
+
+
 static void write_ppi_headers(FILE *file, uint64_t tsfTimer, uint16_t dataRate, uint16_t freq, int8_t rssi, int8_t noise, float gpsLat, float gpsLon, float gpsAlt) {
     struct ppi_hdr pph;
     struct ppi_fieldhdr pfh;
@@ -583,6 +678,9 @@ static struct local_options
 	int ppi;
 	double coordinates[2];
 	int target;
+	char ip[INET_ADDRSTRLEN];
+	int port;
+	int tcp_sock_fd;
 } lopt;
 
 /* targeting globals*/
@@ -648,6 +746,123 @@ static int isTargetMAC(uint8_t *mac_address) {
     }
     return 0; // MAC address is not in the targets list
 }
+
+
+// Function to validate and store IP and port from user input
+int validate_ip_port(const char *input) {
+    if (!input) return 0;  // Null check
+
+    char temp[INET_ADDRSTRLEN + 6];  // Buffer for IP:PORT (max "255.255.255.255:65535")
+    strncpy(temp, input, sizeof(temp) - 1);
+    temp[sizeof(temp) - 1] = '\0';
+
+    char *ip_part = strtok(temp, ":,");  // Extract IP (supports ":" or "," as delimiter)
+    char *port_part = strtok(NULL, ":,");  // Extract Port
+
+    // Ensure both parts exist
+    if (!ip_part || !port_part) {
+        fprintf(stderr, "Invalid format! Use IP:PORT or IP,PORT\n");
+        return 0;
+    }
+
+    // Validate IP address
+    struct sockaddr_in sa;
+    if (inet_pton(AF_INET, ip_part, &(sa.sin_addr)) != 1) {
+        fprintf(stderr, "Invalid IP address: %s\n", ip_part);
+        return 0;
+    }
+
+    // Validate Port
+    char *endptr;
+    long port = strtol(port_part, &endptr, 10);
+    if (*endptr != '\0' || port < 1 || port > 65535) {
+        fprintf(stderr, "Invalid port number: %s\n", port_part);
+        return 0;
+    }
+
+    // Store valid values in lopt (existing structure)
+    strncpy(lopt.ip, ip_part, INET_ADDRSTRLEN - 1);
+    lopt.ip[INET_ADDRSTRLEN - 1] = '\0';  // Ensure null-termination
+    lopt.port = (int)port;
+
+    return 1;  // Success
+}
+
+// Function to start a TCP server and return the accepted client socket
+int start_tcp_server(const char *ip, int port) {
+    int server_fd, client_fd;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t client_len = sizeof(client_addr);
+    int opt = 1;
+    char spinner[] = "|/-\\";  // Spinner animation characters
+    int spin_index = 0;
+
+    // Create the server socket
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("Socket creation failed");
+        return -1;
+    }
+
+    // Allow immediate reuse of the address and port
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    // Configure the server address
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+    
+    // Convert IP address
+    if (inet_pton(AF_INET, ip, &server_addr.sin_addr) <= 0) {
+        perror("Invalid IP address");
+        close(server_fd);
+        return -1;
+    }
+
+    // Bind the socket
+    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Bind failed");
+        close(server_fd);
+        return -1;
+    }
+
+    // Listen for connections
+    if (listen(server_fd, 5) < 0) {
+        perror("Listen failed");
+        close(server_fd);
+        return -1;
+    }
+
+    printf("TCP server listening on %s:%d\n", ip, port);
+
+    // Display a rotating status message on the same line
+    printf("Waiting for a client to connect... ");
+
+    fflush(stdout);  // Ensure output is printed immediately
+
+    // Accept loop with EINTR handling and rotating animation
+    while (1) {
+        printf("\rWaiting for a client to connect... %c", spinner[spin_index]);
+        fflush(stdout);
+        spin_index = (spin_index + 1) % 4;  // Rotate through spinner characters
+        usleep(200000);  // Sleep for 200ms to slow down animation
+
+        client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_len);
+        if (client_fd < 0) {
+            if (errno == EINTR) {
+                continue;  // Retry accept() if interrupted
+            }
+            perror("\nAccept failed");
+            close(server_fd);
+            return -1;
+        }
+        break;  // Exit loop when accept() succeeds
+    }
+
+    printf("\rClient connected!                           \n");  // Clear line
+    close(server_fd);  // Close the listening socket (we only need the client socket)
+    return client_fd;
+}
+
 
 static void resetSelection(void)
 {
@@ -1156,6 +1371,9 @@ static const char usage[] =
 	"      -z / --target \n"
 	"              <mac or file> : Enter a target mac to highlight\n"
 	"                              or pass a file of newline separated macs\n"
+	"      -V / --tcp-server\n"
+	"              <ip:port>     : Enter an IPv4 listen address and \n"
+	"              <ip,port>       valid port number. Requires -w / --write option\n"
 	"\n"
 	"  Filter options:\n"
 	"      --encrypt     <suite> : Filter APs by cipher suite\n"
@@ -1607,6 +1825,10 @@ static int dump_add_packet(unsigned char * h80211,
 	unsigned char clear[2048];
 	int weight[16];
 	int num_xor = 0;
+
+	size_t ppi_header_len = 0;
+	uint8_t *packet_data = NULL;  // Ensure it's NULL initially
+	size_t total_packet_size = 0; // Set to 0 to avoid uninitialized usage
 
 	struct AP_info * ap_cur = NULL;
 	struct ST_info * st_cur = NULL;
@@ -3515,10 +3737,22 @@ write_packet:
 				gpsLon = lopt.gps_loc[1];
 				gpsAlt = lopt.gps_loc[4];
 			}
-			size_t ppi_header_len = calculate_ppi_header_length(gpsLat, gpsLon, gpsAlt);
+			ppi_header_len = calculate_ppi_header_length(gpsLat, gpsLon, gpsAlt);
 			// Update caplen in the packet header
 			pkh.len = pkh.caplen = (uint32_t)(caplen + ppi_header_len);
 		}
+
+		
+		// Allocate memory for full packet (PCAP header + PPI header + packet payload)
+		total_packet_size = sizeof(pkh) + ppi_header_len + caplen;
+		packet_data = (uint8_t *)malloc(total_packet_size);
+		if (!packet_data) {
+			perror("malloc failed");
+			return 1;
+		}
+
+		// Copy PCAP Packet header into packet_data address
+		memcpy(packet_data, &pkh, sizeof(pkh));
 
 		n = sizeof(pkh);
 
@@ -3551,6 +3785,49 @@ write_packet:
 			write_ppi_headers(opt.f_cap, tsfTimer, dataRate, freq, rssi, noise, gpsLat, gpsLon, gpsAlt);
 		}
 
+		if (lopt.tcp_sock_fd > 0) {
+
+			if (lopt.ppi) {
+				float gpsLat = 0, gpsLon = 0, gpsAlt = 0;
+				if (lopt.coordinates[0] != 0 || lopt.coordinates[1] != 0) {
+					gpsLat = (float)lopt.coordinates[0];
+					gpsLon = (float)lopt.coordinates[1];
+					gpsAlt = 0;
+				} else {
+					// Example call to write_ppi_headers
+					gpsLat = lopt.gps_loc[0];
+					gpsLon = lopt.gps_loc[1];
+					gpsAlt = lopt.gps_loc[4];
+				}
+
+				uint64_t tsfTimer = ri->ri_mactime; // Time Synchronization Function timer, usually a 64-bit value
+				int dataRate = ri->ri_rate / 50000;      // Data rate in Mbps, integer value (e.g., 1 Mbps)
+				int freq = getFrequencyFromChannel(ri->ri_channel);       // Frequency in MHz, for 2.4 GHz band channels (e.g., 2412 MHz for channel 1)
+				int rssi = ri->ri_power;        // Received Signal Strength Indicator, in dBm (e.g., -50 dBm)
+				int noise = ri->ri_noise;      // Noise level in dBm (e.g., -100 dBm)
+				write_ppi_headers_to_buffer(packet_data + sizeof(pkh), tsfTimer, dataRate, freq, rssi, noise, gpsLat, gpsLon, gpsAlt);
+
+			}
+
+			// Copy packet payload
+			memcpy(packet_data + sizeof(pkh) + ppi_header_len, h80211, caplen);
+
+			// *** Send over TCP if sockfd is valid ***
+			if (lopt.tcp_sock_fd > 0) {
+				n = send(lopt.tcp_sock_fd, packet_data, total_packet_size, 0);
+				if (n <= 0) {
+					if (n == 0) {
+						printf("\nClient disconnected gracefully.\n");
+					} else {
+						perror("\nSend failed, client may have disconnected");
+					}
+					close(lopt.tcp_sock_fd);  // Close the socket
+					lopt.tcp_sock_fd = -1;    // Mark socket as invalid
+				}
+			}
+
+		}
+
 		//n = pkh.caplen;
 
 		if (fwrite(h80211, 1, caplen, opt.f_cap) != caplen)
@@ -3562,6 +3839,7 @@ write_packet:
 		fflush(stdout);
 	}
 
+	free(packet_data);
 	return (0);
 }
 
@@ -6493,6 +6771,7 @@ int main(int argc, char * argv[])
 		   {"ppi", 0, 0, 'p'},
 		   {"coords", 1, 0, 'y'},
 		   {"target", 1, 0, 'z'},
+		   {"tcp-server", 1, 0, 'V'},
 		   {0, 0, 0, 0}};
 
 	pid_t main_pid = getpid();
@@ -6585,6 +6864,9 @@ int main(int argc, char * argv[])
 	lopt.ppi = 0;
 	lopt.coordinates[0] = 0;
 	lopt.coordinates[1] = 0;
+	strcpy(lopt.ip, "0.0.0.0");
+	lopt.port = 23456;
+	lopt.tcp_sock_fd = -1;
 
 #ifdef CONFIG_LIBNL
 	lopt.htval = CHANNEL_NO_HT;
@@ -6684,7 +6966,7 @@ int main(int argc, char * argv[])
 		option
 			= getopt_long(argc,
 						  argv,
-						  "b:c:egiw:s:t:u:m:d:N:R:aHDB:Ahf:r:EC:o:x:MUI:WK:n:T:Xpz:y:",
+						  "b:c:egiw:s:t:u:m:d:N:R:aHDB:Ahf:r:EC:o:x:MUI:WK:n:T:Xpz:y:V:",
 						  long_options,
 						  &option_index);
 
@@ -6938,11 +7220,20 @@ int main(int argc, char * argv[])
 					fprintf(stderr, "Invalid format for coordinates: %s\n", optarg);
 					exit(EXIT_FAILURE);
 				}
-				snprintf(lopt.message, sizeof(lopt.message), "][ Fixed Coords ");
-				// Calculate the length of the current message.
-				int len = strlen(lopt.message);
-				// Append the coordinates.
-				snprintf(lopt.message + len, sizeof(lopt.message) - len, "%.6f,%.6f", lopt.coordinates[0], lopt.coordinates[1]);
+				size_t y_len = strlen(lopt.message);
+    			snprintf(lopt.message + y_len, sizeof(lopt.message) - y_len, " ][ Fixed Coords %.6f,%.6f", lopt.coordinates[0], lopt.coordinates[1]);
+				
+				break;
+
+			case 'V':
+
+				if (!validate_ip_port(optarg)) {
+					fprintf(stderr, "Invalid server address format!\n");
+					exit(EXIT_FAILURE);
+				}
+				lopt.tcp_sock_fd = 0;
+				size_t V_len = strlen(lopt.message);
+    			snprintf(lopt.message + V_len, sizeof(lopt.message) - V_len, " ][ TCP Server On %s:%d", lopt.ip, lopt.port);
 				break;
 
 			case 'i':
@@ -7494,6 +7785,10 @@ int main(int argc, char * argv[])
 		}
 	}
 
+	if (lopt.tcp_sock_fd == 0) {
+		lopt.tcp_sock_fd = start_tcp_server(lopt.ip, lopt.port);  // Start TCP server, get client socket
+	}
+
 	/* check if there is an input file */
 	if (opt.s_file != NULL)
 	{
@@ -7541,7 +7836,7 @@ int main(int argc, char * argv[])
 
 	if (opt.record_data) {
 		int ppi = lopt.ppi;
-		if (dump_initialize_multi_format(lopt.dump_prefix, ivs_only, ppi))
+		if (dump_initialize_multi_format(lopt.dump_prefix, ivs_only, ppi, &lopt.tcp_sock_fd))
 			return (EXIT_FAILURE);
 	}
 	struct sigaction action;
@@ -7553,6 +7848,7 @@ int main(int argc, char * argv[])
 	if (sigaction(SIGSEGV, &action, NULL) == -1) perror("sigaction(SIGSEGV)");
 	if (sigaction(SIGTERM, &action, NULL) == -1) perror("sigaction(SIGTERM)");
 	if (sigaction(SIGWINCH, &action, NULL) == -1) perror("sigaction(SIGWINCH)");
+	if (sigaction(SIGPIPE, &action, NULL) == -1) perror("sigaction(SIGPIPE)");
 
 	/* fill oui struct if ram is greater than 32 MB */
 	if (get_ram_size() > MIN_RAM_SIZE_LOAD_OUI_RAM)
@@ -8025,6 +8321,10 @@ int main(int argc, char * argv[])
 			snprintf(lopt.message, sizeof(lopt.message), "]");
 		}
 	}
+
+	if (lopt.tcp_sock_fd > 0) {
+        close(lopt.tcp_sock_fd);  // Close socket after capture loop exits
+    }
 
 	if (lopt.batt) free(lopt.batt);
 
