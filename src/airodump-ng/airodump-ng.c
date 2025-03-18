@@ -707,17 +707,14 @@ static struct local_options
 	int ppi;
 	double coordinates[2];
 	int target;
-<<<<<<< HEAD
 	char ip[INET_ADDRSTRLEN];
 	int port;
 	int tcp_sock_fd;
-=======
-
 	int ax_bw;
 	int c_seg0;
 	int c_seg1;
 
->>>>>>> 7294a56efd7f1d527116f17d50b14b89cc002ae5
+
 } lopt;
 
 /* targeting globals*/
@@ -6815,16 +6812,13 @@ int main(int argc, char * argv[])
 		   {"ppi", 0, 0, 'p'},
 		   {"coords", 1, 0, 'y'},
 		   {"target", 1, 0, 'z'},
-<<<<<<< HEAD
 		   {"tcp-server", 1, 0, 'V'},
-=======
 		   {"ax40", 0, 0, '4'},
 		   {"ax80", 0, 0, '8'},
 		   {"ax80+", 0, 0, '9'},
 		   {"ax160", 0, 0, '6'},
 		   {"cseg0", 1, 0, '0'},
 		   {"cseg1", 1, 0, '1'},
->>>>>>> 7294a56efd7f1d527116f17d50b14b89cc002ae5
 		   {0, 0, 0, 0}};
 
 	pid_t main_pid = getpid();
@@ -6917,15 +6911,12 @@ int main(int argc, char * argv[])
 	lopt.ppi = 0;
 	lopt.coordinates[0] = 0;
 	lopt.coordinates[1] = 0;
-<<<<<<< HEAD
-	strcpy(lopt.ip, "0.0.0.0");
+	lopt.ip, "0.0.0.0";
 	lopt.port = 23456;
 	lopt.tcp_sock_fd = -1;
-=======
 	lopt.ax_bw = 0; // can be 4 (40MHz), 8 (80MHz), 9 (80+80), 6 (160MHz)
 	lopt.c_seg0 = 0;
 	lopt.c_seg1 = 0;
->>>>>>> 7294a56efd7f1d527116f17d50b14b89cc002ae5
 
 #ifdef CONFIG_LIBNL
 	lopt.htval = CHANNEL_NO_HT;
@@ -7898,14 +7889,11 @@ int main(int argc, char * argv[])
 		}
 	}
 
-<<<<<<< HEAD
 	if (lopt.tcp_sock_fd == 0) {
 		lopt.tcp_sock_fd = start_tcp_server(lopt.ip, lopt.port);  // Start TCP server, get client socket
 	}
-=======
 	// need to set the mactime to zero in the event there is no TSFT in the driver-generated radiotap
 	ri.ri_mactime = 0;
->>>>>>> 7294a56efd7f1d527116f17d50b14b89cc002ae5
 
 	/* check if there is an input file */
 	if (opt.s_file != NULL)
