@@ -720,6 +720,7 @@ static struct local_options
 /* targeting globals*/
 #define MAX_TARGETS 100
 unsigned char targets[MAX_TARGETS][6]; // Array to store MAC addresses
+uint8_t wildcard_nibbles[MAX_TARGETS][12];
 int num_targets = 0; // Number of MAC addresses stored
 
 // Function to validate a MAC address
@@ -752,35 +753,84 @@ static int convertMACToBytes(const char *mac_str, uint8_t *mac_bytes) {
     return 0; // Success
 }
 
+static int convertMACToBytesWithWildcards(const char *mac_str, uint8_t *mac_bytes, uint8_t *nibble_mask) {
+    if (strlen(mac_str) != 17) return -1;
+
+    for (int i = 0; i < 6; i++) {
+        char c1 = mac_str[i * 3];
+        char c2 = mac_str[i * 3 + 1];
+
+        if (i < 5 && mac_str[i * 3 + 2] != ':') return -1;
+
+        uint8_t high_nibble, low_nibble;
+
+        // High nibble
+        if (c1 == '?') {
+            high_nibble = 0;
+            nibble_mask[i * 2] = 1;
+        } else if (isxdigit(c1)) {
+            high_nibble = (uint8_t)(isdigit(c1) ? c1 - '0' : (tolower(c1) - 'a' + 10));
+            nibble_mask[i * 2] = 0;
+        } else return -1;
+
+        // Low nibble
+        if (c2 == '?') {
+            low_nibble = 0;
+            nibble_mask[i * 2 + 1] = 1;
+        } else if (isxdigit(c2)) {
+            low_nibble = (uint8_t)(isdigit(c2) ? c2 - '0' : (tolower(c2) - 'a' + 10));
+            nibble_mask[i * 2 + 1] = 0;
+        } else return -1;
+
+        mac_bytes[i] = (high_nibble << 4) | low_nibble;
+    }
+
+    return 0;
+}
+
+
 // Function to parse a file for MAC addresses
 static int parseMACAddressFile(const char *filename) {
     FILE *file = fopen(filename, "r");
-    if (file == NULL) return -1; // File opening failed
+    if (file == NULL) return -1;
 
-    char line[19]; // Buffer size adjusted for MAC address plus newline and null terminator
-    
-    while (fgets(line, sizeof(line), file) != NULL) { // Read until EOF
-        line[strcspn(line, "\r\n")] = '\0'; // Remove both newline and carriage return characters
+    char line[64]; // enough for safety
+    while (fgets(line, sizeof(line), file) != NULL) {
+        line[strcspn(line, "\r\n")] = '\0'; // Trim newline
 
-        // Convert the MAC address and increment the target count if successful
-        if (convertMACToBytes(line, targets[num_targets]) == 0 && num_targets < MAX_TARGETS) {
+        if (num_targets >= MAX_TARGETS) break;
+
+        if (convertMACToBytesWithWildcards(line, targets[num_targets], wildcard_nibbles[num_targets]) == 0) {
             num_targets++;
         }
     }
 
     fclose(file);
-    return 0; // Success
+    return 0;
 }
 
 static int isTargetMAC(uint8_t *mac_address) {
     for (int i = 0; i < num_targets; i++) {
-        if (memcmp(mac_address, targets[i], 6) == 0) {
-            return 1; // MAC address is in the targets list
-        }
-    }
-    return 0; // MAC address is not in the targets list
-}
+        int matched = 1;
+        for (int j = 0; j < 6; j++) {
+            uint8_t target_byte = targets[i][j];
+            uint8_t target_high = (target_byte & 0xF0) >> 4;
+            uint8_t target_low = target_byte & 0x0F;
 
+            uint8_t mac_high = (mac_address[j] & 0xF0) >> 4;
+            uint8_t mac_low = mac_address[j] & 0x0F;
+
+            if (!wildcard_nibbles[i][j * 2] && mac_high != target_high) {
+                matched = 0; break;
+            }
+            if (!wildcard_nibbles[i][j * 2 + 1] && mac_low != target_low) {
+                matched = 0; break;
+            }
+        }
+        if (matched) return 1;
+    }
+    return 0;
+}
 
 // Function to validate and store IP and port from user input
 int validate_ip_port(const char *input) {
@@ -7241,13 +7291,20 @@ int main(int argc, char * argv[])
 				}
 				break;
 
-			case 'z':				
-				if (convertMACToBytes(optarg, targets[num_targets]) == 0) {
+			case 'z':
+				if (num_targets >= MAX_TARGETS) {
+					fprintf(stderr, "Too many target MACs (max %d).\n", MAX_TARGETS);
+					return EXIT_FAILURE;
+				}
+
+				if (convertMACToBytesWithWildcards(optarg, targets[num_targets], wildcard_nibbles[num_targets]) == 0) {
+
 					num_targets++;
 				} else if (parseMACAddressFile(optarg) != 0) {
 					fprintf(stderr, "Invalid MAC address or file error.\n");
-					return (EXIT_FAILURE);
+					return EXIT_FAILURE;
 				}
+
 				lopt.target = 1;
 				color_on();
 				snprintf(lopt.message, sizeof(lopt.message), "][ targeting on");
