@@ -297,6 +297,8 @@ struct ppi_fieldhdr {
 #define PPI_80211_COMMON 2
 #define PPI_GEOTAG 30002
 
+double last_coordinates[3] = {0.0, 0.0, 0.0};  // latitude, longitude, altitude
+
 // Function to convert floating-point GPS data to a fixed-point representation
 static uint32_t float_to_fixed37(float value) {
     return (uint32_t)((value + 180)* 10000000);
@@ -3856,15 +3858,28 @@ write_packet:
 
 		if (lopt.ppi) {
 			float gpsLat = 0, gpsLon = 0, gpsAlt = 0;
-			if (lopt.coordinates[0] != 0 || lopt.coordinates[1] != 0) {
+			if (lopt.coordinates[0] != 0.0 || lopt.coordinates[1] != 0.0) {
+				// Case 1: User provided command-line coordinates
 				gpsLat = (float)lopt.coordinates[0];
 				gpsLon = (float)lopt.coordinates[1];
 				gpsAlt = 0;
-			} else {
-				// Example call to write_ppi_headers
-				gpsLat = lopt.gps_loc[0];
-				gpsLon = lopt.gps_loc[1];
-				gpsAlt = lopt.gps_loc[4];
+
+			} else if (lopt.gps_loc[0] != 0.0 || lopt.gps_loc[1] != 0.0) {
+				// Case 2: Live GPS data
+				gpsLat = (float)lopt.gps_loc[0];
+				gpsLon = (float)lopt.gps_loc[1];
+				gpsAlt = (float)lopt.gps_loc[4];
+
+				// Save latest valid fix
+				last_coordinates[0] = lopt.gps_loc[0];
+				last_coordinates[1] = lopt.gps_loc[1];
+				last_coordinates[2] = lopt.gps_loc[4];
+
+			} else if (last_coordinates[0] != 0.0 || last_coordinates[1] != 0.0) {
+				// Case 3: Fallback to last known good GPS fix
+				gpsLat = (float)last_coordinates[0];
+				gpsLon = (float)last_coordinates[1];
+				gpsAlt = (float)last_coordinates[2];
 			}
 
 			uint64_t tsfTimer = ri->ri_mactime; // Time Synchronization Function timer, usually a 64-bit value
@@ -3879,15 +3894,28 @@ write_packet:
 
 			if (lopt.ppi) {
 				float gpsLat = 0, gpsLon = 0, gpsAlt = 0;
-				if (lopt.coordinates[0] != 0 || lopt.coordinates[1] != 0) {
+				if (lopt.coordinates[0] != 0.0 || lopt.coordinates[1] != 0.0) {
+					// Case 1: User provided command-line coordinates
 					gpsLat = (float)lopt.coordinates[0];
 					gpsLon = (float)lopt.coordinates[1];
 					gpsAlt = 0;
-				} else {
-					// Example call to write_ppi_headers
-					gpsLat = lopt.gps_loc[0];
-					gpsLon = lopt.gps_loc[1];
-					gpsAlt = lopt.gps_loc[4];
+
+				} else if (lopt.gps_loc[0] != 0.0 || lopt.gps_loc[1] != 0.0) {
+					// Case 2: Live GPS data
+					gpsLat = (float)lopt.gps_loc[0];
+					gpsLon = (float)lopt.gps_loc[1];
+					gpsAlt = (float)lopt.gps_loc[4];
+
+					// Save latest valid fix
+					last_coordinates[0] = lopt.gps_loc[0];
+					last_coordinates[1] = lopt.gps_loc[1];
+					last_coordinates[2] = lopt.gps_loc[4];
+
+				} else if (last_coordinates[0] != 0.0 || last_coordinates[1] != 0.0) {
+					// Case 3: Fallback to last known good GPS fix
+					gpsLat = (float)last_coordinates[0];
+					gpsLon = (float)last_coordinates[1];
+					gpsAlt = (float)last_coordinates[2];
 				}
 
 				uint64_t tsfTimer = ri->ri_mactime; // Time Synchronization Function timer, usually a 64-bit value
