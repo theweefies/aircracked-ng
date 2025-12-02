@@ -99,6 +99,7 @@ struct communication_options
 
 	uint8_t deauth_rc;
 	int r_nbpps;
+	int bidirectional;
 	unsigned int r_fctrl;
 	uint8_t r_bssid[6];
 	uint8_t r_dmac[6];
